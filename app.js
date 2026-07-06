@@ -2523,7 +2523,7 @@ function initEvents() {
                     updateStatusLabel.style.color = 'var(--accent-pink)';
                     
                     $('#update-modal-version').textContent = `Version ${info.version || 'Nouvelle'}`;
-                    $('#update-modal-message').innerHTML = `Une nouvelle version de Quest Log est disponible : <strong>v${info.version}</strong>.<br><br>Notes de version :<br><span style="font-size:0.8rem; color:var(--text-tertiary);">${info.releaseNotes || 'Corrections de bugs et optimisations.'}</span>`;
+                    $('#update-modal-message').innerHTML = `Une nouvelle version de Quest Log est disponible : <strong>v${info.version}</strong>.<br><br>Souhaitez-vous la télécharger et l'installer maintenant ?`;
                     $('#update-progress-container').style.display = 'none';
                     btnUpdateConfirm.disabled = false;
                     btnUpdateConfirm.textContent = 'Télécharger';

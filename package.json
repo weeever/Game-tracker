@@ -39,7 +39,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "icon.ico"
+      "icon": "icon.ico",
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,

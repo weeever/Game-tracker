@@ -18,6 +18,7 @@ app.setAppUserModelId('com.questlog.app');
 autoUpdater.logger = console;
 autoUpdater.autoDownload = false; // Nice interactive download popup
 autoUpdater.allowPrerelease = true; // Allow detecting beta / pre-release updates on GitHub
+autoUpdater.verifyUpdateCodeSignature = (publisherName, path) => Promise.resolve(null); // Bypass signature check for unsigned apps
 
 // ---------- Single Instance Lock ----------
 const gotTheLock = app.requestSingleInstanceLock();
