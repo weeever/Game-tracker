@@ -36,8 +36,8 @@ let state = {
 
 // ---------- Changelogs ----------
 const CHANGELOGS = {
-    '0.0.2': {
-        title: "Quest Log v0.0.2 — Update Stabilité",
+    '0.0.1': {
+        title: "Quest Log v0.0.1 — Update Stabilité",
         date: "6 Juillet 2026",
         badge: "Beta Update",
         items: [
@@ -1913,13 +1913,27 @@ function initEvents() {
         $('#btn-win-minimize')?.addEventListener('click', () => window.questlog.minimizeWindow());
         $('#btn-win-maximize')?.addEventListener('click', () => window.questlog.maximizeWindow());
         $('#btn-win-close')?.addEventListener('click', () => {
-            // Show toast in the premium White SVG theme
-            showToast("Quest Log continue de tourner en arrière-plan dans la zone de notification (Tray) ! 🤖", "ℹ️");
-            
-            // Wait 2.2 seconds before actual window hiding in main process with fade out
-            setTimeout(() => {
-                window.questlog.hideWindowWithAnimation();
-            }, 2200);
+            // Trigger native OS notification
+            try {
+                if (Notification.permission === "granted") {
+                    new Notification("Quest Log", {
+                        body: "L'application continue de tourner en arrière-plan (Tray) ! 🤖",
+                        icon: "icon.png"
+                    });
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            new Notification("Quest Log", {
+                                body: "L'application continue de tourner en arrière-plan (Tray) ! 🤖",
+                                icon: "icon.png"
+                            });
+                        }
+                    });
+                }
+            } catch (e) {}
+
+            // Hide window instantly to avoid any rendering bugs
+            window.questlog.closeWindow();
         });
     } else {
         const tb = $('#app-titlebar');

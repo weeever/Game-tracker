@@ -1292,3 +1292,41 @@ body::before { content: ''; position: fixed; inset: 0; background: var(--gradien
         box-shadow: 0 0 25px rgba(236, 72, 153, 0.5);
     }
 }
+
+/* Cascading Entrance animations on startup */
+.app-header {
+    animation: slideDownFade 0.5s var(--ease-out) backwards;
+    animation-delay: 0.08s;
+}
+
+.now-playing-section:not(.hidden) {
+    animation: slideUpFade 0.5s var(--ease-spring) backwards;
+    animation-delay: 0.18s;
+}
+
+.main-content, .tab-content.active, .backlog-grid {
+    animation: slideUpFade 0.5s var(--ease-out) backwards;
+    animation-delay: 0.28s;
+}
+
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

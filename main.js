@@ -11,6 +11,9 @@ const https = require('https');
 const crypto = require('crypto');
 const RPC = require('discord-rpc');
 
+// Set Application User Model ID for native Windows Notifications
+app.setAppUserModelId('com.questlog.app');
+
 // Configure auto updater properties
 autoUpdater.logger = console;
 autoUpdater.autoDownload = false; // Nice interactive download popup
@@ -73,8 +76,8 @@ function createWindow() {
         minHeight: 600,
         title: 'Quest Log',
         icon: path.join(__dirname, 'icon.png'),
-        backgroundColor: '#0a0a0f',
         frame: false,
+        transparent: true, // Enable window transparency for rounded corners and desktop glassmorphism
         show: false, // Don't show immediately to prevent flash and allow background start
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
