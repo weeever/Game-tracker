@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0a0a0f"/>
+    </linearGradient>
+    <linearGradient id="icon-grad" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="icon-grad2" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f472b6"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg-grad)"/>
+  <rect x="4" y="4" width="248" height="248" rx="44" fill="none" stroke="url(#icon-grad)" stroke-width="2" opacity="0.3"/>
+  <g transform="translate(128, 128) scale(5.5) translate(-16, -16)">
+    <rect x="2" y="10" width="28" height="16" rx="8" fill="none" stroke="url(#icon-grad)" stroke-width="2.5"/>
+    <circle cx="10" cy="18" r="2.5" fill="url(#icon-grad)"/>
+    <circle cx="22" cy="18" r="2.5" fill="url(#icon-grad2)"/>
+    <rect x="14" y="15" width="4" height="2" rx="1" fill="url(#icon-grad)"/>
+    <line x1="10" y1="7" x2="10" y2="10" stroke="url(#icon-grad)" stroke-width="2" stroke-linecap="round"/>
+    <line x1="22" y1="7" x2="22" y2="10" stroke="url(#icon-grad2)" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>

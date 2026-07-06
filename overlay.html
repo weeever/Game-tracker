@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quest Log Overlay</title>
+    <link rel="stylesheet" href="overlay.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="overlay-container">
+        <!-- Sync notification at the center of the screen -->
+        <div id="sync-banner" class="sync-banner hidden">
+            <div class="sync-logo">
+                <svg viewBox="0 0 32 32">
+                    <rect x="2" y="10" width="28" height="16" rx="8" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                    <circle cx="10" cy="18" r="2.5" fill="currentColor"/>
+                    <circle cx="22" cy="18" r="2.5" fill="currentColor"/>
+                    <rect x="14" y="15" width="4" height="2" rx="1" fill="currentColor"/>
+                    <line x1="10" y1="7" x2="10" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="22" y1="7" x2="22" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="sync-text-container">
+                <div class="sync-title">QUEST LOG SYNCHRONISÉ</div>
+                <div class="sync-subtitle">Suivi de session actif • Succès prêts</div>
+            </div>
+        </div>
+
+        <!-- Level Up Notification at the center of the screen -->
+        <div id="levelup-overlay" class="levelup-overlay hidden">
+            <div class="levelup-glow"></div>
+            <div class="levelup-content">
+                <div class="levelup-stars">
+                    <svg class="star-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <svg class="star-svg center" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <svg class="star-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </div>
+                <div class="levelup-header">MONTEE DE NIVEAU</div>
+                <div class="levelup-badge">
+                    <span id="levelup-number">1</span>
+                </div>
+                <div class="levelup-footer">AVENTURE ACTIVE • QUEST LOG</div>
+            </div>
+        </div>
+
+        <!-- Game Completed Notification at the center of the screen -->
+        <div id="gamecompleted-overlay" class="gamecompleted-overlay hidden">
+            <div class="completed-glow"></div>
+            <div class="completed-content">
+                <div class="completed-badge">
+                    <svg class="completed-trophy-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                        <path d="M4 22h16"/>
+                        <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/>
+                        <path d="M12 2a6 6 0 0 1 6 6v3.5a6 6 0 0 1-12 0V8a6 6 0 0 1 6-6z"/>
+                    </svg>
+                </div>
+                <div class="completed-header">QUETE PRINCIPALE ACCOMPLIE</div>
+                <div id="completed-game-title" class="completed-game-title">CULT OF THE LAMB</div>
+                <div id="completed-achievement-info" class="completed-achievement-info">Succès de fin détecté</div>
+            </div>
+        </div>
+
+        <!-- Real-time achievement unlock notification container (bottom right) -->
+        <div id="toast-container"></div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        const syncBanner = document.getElementById('sync-banner');
+        const levelupOverlay = document.getElementById('levelup-overlay');
+        const gamecompletedOverlay = document.getElementById('gamecompleted-overlay');
+        const toastContainer = document.getElementById('toast-container');
+
+        // Advanced Web Audio Synth for notifications
+        function playOverlaySound(type = 'achievement') {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const now = ctx.currentTime;
+                
+                if (type === 'achievement') {
+                    // C5 -> E5 bip bip
+                    const osc1 = ctx.createOscillator();
+                    const gain1 = ctx.createGain();
+                    osc1.type = 'triangle';
+                    osc1.frequency.setValueAtTime(523.25, now); // C5
+                    gain1.gain.setValueAtTime(0.05, now);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc1.connect(gain1);
+                    gain1.connect(ctx.destination);
+                    osc1.start();
+                    osc1.stop(now + 0.3);
+
+                    setTimeout(() => {
+                        const osc2 = ctx.createOscillator();
+                        const gain2 = ctx.createGain();
+                        osc2.type = 'triangle';
+                        osc2.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                        gain2.gain.setValueAtTime(0.06, now + 0.08);
+                        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+                        osc2.connect(gain2);
+                        gain2.connect(ctx.destination);
+                        osc2.start();
+                        osc2.stop(now + 0.48);
+                    }, 80);
+                } else if (type === 'levelup') {
+                    // Majestic arpeggio C5 -> G5 -> C6 -> E6
+                    const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                    freqs.forEach((freq, idx) => {
+                        setTimeout(() => {
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                            gain.gain.setValueAtTime(0.07, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.6);
+                        }, idx * 100);
+                    });
+                } else if (type === 'completed') {
+                    // Epic game completion sound chord
+                    const notes = [261.63, 329.63, 392.00, 523.25, 659.25]; // Chord
+                    notes.forEach((freq) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now);
+                        gain.gain.setValueAtTime(0.04, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start();
+                        osc.stop(now + 1.2);
+                    });
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        // Handle show sync banner
+        ipcRenderer.on('show-sync', (event, gameName) => {
+            document.querySelector('.sync-subtitle').textContent = `${gameName} • Session active`;
+            syncBanner.className = 'sync-banner show';
+            
+            setTimeout(() => {
+                syncBanner.className = 'sync-banner fade-out';
+                setTimeout(() => {
+                    syncBanner.className = 'sync-banner hidden';
+                }, 500);
+            }, 3500);
+        });
+
+        // Handle show level up
+        ipcRenderer.on('show-levelup', (event, level) => {
+            document.getElementById('levelup-number').textContent = level;
+            levelupOverlay.className = 'levelup-overlay show';
+            playOverlaySound('levelup');
+            
+            setTimeout(() => {
+                levelupOverlay.className = 'levelup-overlay fade-out';
+                setTimeout(() => {
+                    levelupOverlay.className = 'levelup-overlay hidden';
+                }, 800);
+            }, 4000);
+        });
+
+        // Handle show game completed
+        ipcRenderer.on('show-gamecompleted', (event, gameName, achievementName) => {
+            document.getElementById('completed-game-title').textContent = gameName.toUpperCase();
+            document.getElementById('completed-achievement-info').textContent = `Succès : ${achievementName}`;
+            gamecompletedOverlay.className = 'gamecompleted-overlay show';
+            playOverlaySound('completed');
+            
+            setTimeout(() => {
+                gamecompletedOverlay.className = 'gamecompleted-overlay fade-out';
+                setTimeout(() => {
+                    gamecompletedOverlay.className = 'gamecompleted-overlay hidden';
+                }, 800);
+            }, 4500);
+        });
+
+        // Handle show achievement
+        ipcRenderer.on('show-achievement', (event, achievement) => {
+            const toast = document.createElement('div');
+            toast.className = 'achievement-toast';
+
+            // Clean icon source
+            let iconHtml = `
+                <div class="ach-icon-fallback">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px; color: #fbbf24;">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                        <path d="M4 22h16"/>
+                        <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/>
+                        <path d="M12 2a6 6 0 0 1 6 6v3.5a6 6 0 0 1-12 0V8a6 6 0 0 1 6-6z"/>
+                    </svg>
+                </div>
+            `;
+            if (achievement.icon) {
+                iconHtml = `<img src="${achievement.icon}" alt="Success Icon" class="ach-icon-img">`;
+            }
+
+            toast.innerHTML = `
+                <div class="ach-glow-border"></div>
+                <div class="ach-content">
+                    <div class="ach-icon-wrapper">${iconHtml}</div>
+                    <div class="ach-details">
+                        <div class="ach-label">SUCCÈS DÉVERROUILLÉ !</div>
+                        <div class="ach-title">${achievement.name}</div>
+                        <div class="ach-desc">${achievement.description || 'Succès secret'}</div>
+                    </div>
+                    <div class="ach-rewards">
+                        <div class="reward-tag xp">+250 XP</div>
+                        <div class="reward-tag gold">+50 OR</div>
+                    </div>
+                </div>
+            `;
+
+            toastContainer.appendChild(toast);
+            playOverlaySound('achievement');
+
+            // Slide in animation triggers automatically
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                toast.classList.add('slide-out');
+                setTimeout(() => {
+                    toast.remove();
+                }, 500);
+            }, 4500);
+        });
+    </script>
+</body>
+</html>
