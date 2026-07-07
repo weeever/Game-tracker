@@ -113,7 +113,7 @@
                 </div>
                 <div class="stat-chip" id="stat-gold" title="Pièces d'or accumulées" data-i18n-title="title_gold"
                     style="border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.05);">
-                    <span class="stat-icon">🪙</span>
+                    <span class="stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#fbbf24;"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 10h8M8 14h8"/></svg></span>
                     <span class="stat-value" id="gold-count" style="color: #fbbf24; font-weight: 800;">0</span>
                 </div>
                 <div class="stat-chip" id="stat-total-playtime" title="Temps de jeu total" data-i18n-title="title_playtime"
@@ -252,12 +252,12 @@
                             </svg>
                         </button>
                         <div id="menu-sort-backlog" class="sort-menu">
-                            <button class="sort-option active-sort" data-sort="newest"><span data-i18n="sort_newest">📅 Plus récent</span></button>
-                            <button class="sort-option" data-sort="oldest"><span data-i18n="sort_oldest">📅 Plus ancien</span></button>
-                            <button class="sort-option" data-sort="alpha"><span data-i18n="sort_az">🔤 A → Z</span></button>
-                            <button class="sort-option" data-sort="alpha-desc"><span data-i18n="sort_za">🔤 Z → A</span></button>
-                            <button class="sort-option" data-sort="platform"><span data-i18n="sort_platform">🖥️ Par plateforme</span></button>
-                            <button class="sort-option" data-sort="genre"><span data-i18n="sort_genre">🎭 Par genre</span></button>
+                            <button class="sort-option active-sort" data-sort="newest"><span data-i18n="sort_newest">Plus récent</span></button>
+                            <button class="sort-option" data-sort="oldest"><span data-i18n="sort_oldest">Plus ancien</span></button>
+                            <button class="sort-option" data-sort="alpha"><span data-i18n="sort_az">A → Z</span></button>
+                            <button class="sort-option" data-sort="alpha-desc"><span data-i18n="sort_za">Z → A</span></button>
+                            <button class="sort-option" data-sort="achievements-desc"><span data-i18n="sort_achievements">Plus de succès</span></button>
+                            <button class="sort-option" data-sort="playtime-desc"><span data-i18n="sort_playtime">Plus d'heures jouées</span></button>
                         </div>
                     </div>
                 </div>
@@ -310,13 +310,13 @@
                             </svg>
                         </button>
                         <div id="menu-sort-completed" class="sort-menu">
-                            <button class="sort-option active-sort" data-sort="newest"><span data-i18n="sort_newest">📅 Plus récent</span></button>
-                            <button class="sort-option" data-sort="oldest"><span data-i18n="sort_oldest">📅 Plus ancien</span></button>
-                            <button class="sort-option" data-sort="alpha"><span data-i18n="sort_az">🔤 A → Z</span></button>
-                            <button class="sort-option" data-sort="alpha-desc"><span data-i18n="sort_za">🔤 Z → A</span></button>
-                            <button class="sort-option" data-sort="rating"><span data-i18n="sort_rating">⭐ Par note</span></button>
-                            <button class="sort-option" data-sort="platform"><span data-i18n="sort_platform">🖥️ Par plateforme</span></button>
-                            <button class="sort-option" data-sort="genre"><span data-i18n="sort_genre">🎭 Par genre</span></button>
+                            <button class="sort-option active-sort" data-sort="newest"><span data-i18n="sort_newest">Plus récent</span></button>
+                            <button class="sort-option" data-sort="oldest"><span data-i18n="sort_oldest">Plus ancien</span></button>
+                            <button class="sort-option" data-sort="alpha"><span data-i18n="sort_az">A → Z</span></button>
+                            <button class="sort-option" data-sort="alpha-desc"><span data-i18n="sort_za">Z → A</span></button>
+                            <button class="sort-option" data-sort="rating"><span data-i18n="sort_rating">Par note</span></button>
+                            <button class="sort-option" data-sort="achievements-desc"><span data-i18n="sort_achievements">Succès débloqués</span></button>
+                            <button class="sort-option" data-sort="playtime-desc"><span data-i18n="sort_playtime">Temps de jeu</span></button>
                         </div>
                     </div>
                 </div>
@@ -377,14 +377,14 @@
                     <div class="search-filters">
                         <!-- Custom Sort Dropdown (Single Select) -->
                         <div class="custom-dropdown" id="dropdown-sort">
-                            <div class="custom-dropdown-btn" data-i18n="filter_popular">🔥 Populaire</div>
+                            <div class="custom-dropdown-btn" data-i18n="filter_popular">Populaire</div>
                             <div class="custom-dropdown-menu single-select">
                                 <label class="custom-dropdown-item"><input type="radio" name="sort" value="popularity"
-                                        checked><span data-i18n="filter_popular">🔥 Populaire</span></label>
+                                        checked><span data-i18n="filter_popular">Populaire</span></label>
                                 <label class="custom-dropdown-item"><input type="radio" name="sort"
-                                        value="newest"><span data-i18n="filter_newest">📅 Nouveautés</span></label>
+                                        value="newest"><span data-i18n="filter_newest">Nouveautés</span></label>
                                 <label class="custom-dropdown-item"><input type="radio" name="sort"
-                                        value="rating"><span data-i18n="filter_best_rating">⭐ Mieux notés</span></label>
+                                        value="rating"><span data-i18n="filter_best_rating">Mieux notés</span></label>
                             </div>
                         </div>
 
@@ -392,22 +392,14 @@
                         <div class="custom-dropdown" id="dropdown-platform">
                             <div class="custom-dropdown-btn" id="platform-btn-label" data-i18n="filter_all_platforms">Toutes plateformes</div>
                             <div class="custom-dropdown-menu multi-select">
-                                <label class="custom-dropdown-item"><input type="checkbox" value="6"><span>🖥️
-                                        PC</span></label>
-                                <label class="custom-dropdown-item"><input type="checkbox" value="167"><span>🎮
-                                        PS5</span></label>
-                                <label class="custom-dropdown-item"><input type="checkbox" value="48"><span>🎮
-                                        PS4</span></label>
-                                <label class="custom-dropdown-item"><input type="checkbox" value="169"><span>🎮 Xbox
-                                        Series</span></label>
-                                <label class="custom-dropdown-item"><input type="checkbox" value="49"><span>🎮 Xbox
-                                        One</span></label>
-                                <label class="custom-dropdown-item"><input type="checkbox" value="130"><span>🎮
-                                        Switch</span></label>
-                                <label class="custom-dropdown-item"><input type="checkbox" value="159"><span>📱 Nintendo
-                                        DS</span></label>
-                                <label class="custom-dropdown-item"><input type="checkbox" value="37"><span>📱
-                                        3DS</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="6"><span>PC</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="167"><span>PS5</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="48"><span>PS4</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="169"><span>Xbox Series</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="49"><span>Xbox One</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="130"><span>Switch</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="159"><span>Nintendo DS</span></label>
+                                <label class="custom-dropdown-item"><input type="checkbox" value="37"><span>3DS</span></label>
                             </div>
                         </div>
 
@@ -709,7 +701,10 @@
                         <h4 class="details-subtitle" data-i18n="details_launch_subtitle">Lancement</h4>
                         <button id="btn-play-game" class="btn-primary btn-full"
                             style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; font-weight: 700;">
-                            <span id="btn-play-text">▶️ Lancer le jeu</span>
+                            <span id="btn-play-text" style="display: flex; align-items: center; gap: 6px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                Lancer le jeu
+                            </span>
                         </button>
                     </div>
 
@@ -816,7 +811,7 @@
                 <h2 class="random-pick-name" id="random-pick-name" style="font-family: var(--font-display); font-size: 2rem; font-weight: 900; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; line-height: 1.2;"></h2>
                 <p class="random-pick-platform" id="random-pick-platform" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;"></p>
                 <div class="random-pick-cover" id="random-pick-cover" style="width: 140px; height: 190px; border-radius: var(--radius-md); background-size: cover; background-position: center; border: 1.5px solid rgba(255,255,255,0.08); box-shadow: var(--shadow-glow); margin-bottom: 24px;"></div>
-                <button id="btn-accept-pick" class="btn-primary" style="padding: 12px 32px; font-weight: 700; background: var(--gradient-primary); box-shadow: var(--shadow-glow); border: none; color: white; cursor: pointer; border-radius: var(--radius-md); width: 100%;" data-i18n="destiny_btn">C'est parti ! ⚔️</button>
+                <button id="btn-accept-pick" class="btn-primary" style="padding: 12px 32px; font-weight: 700; background: var(--gradient-primary); box-shadow: var(--shadow-glow); border: none; color: white; cursor: pointer; border-radius: var(--radius-md); width: 100%;" data-i18n="destiny_btn">C'est parti !</button>
             </div>
         </div>
     </div>
@@ -841,17 +836,17 @@
                 <!-- Stats Grid (Time, XP, Gold) -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                     <div class="recap-item" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); border-radius: var(--radius-md); padding: 14px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px;">
-                        <span style="font-size: 1.4rem;">⏱️</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-primary);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                         <div style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); font-weight: 700;" data-i18n="recap_stat_time_label">Temps</div>
                         <div id="recap-stat-time" style="font-size: 1.05rem; font-weight: 800; color: white;">0 min</div>
                     </div>
                     <div class="recap-item" style="background: rgba(167,139,250,0.05); border: 1px solid rgba(167,139,250,0.12); border-radius: var(--radius-md); padding: 14px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px;">
-                        <span style="font-size: 1.4rem; filter: drop-shadow(0 0 5px rgba(167,139,250,0.5));">⭐</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-primary); filter: drop-shadow(0 0 5px rgba(167,139,250,0.5));"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                         <div style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-violet); font-weight: 700;" data-i18n="xp_gained">XP Gagné</div>
                         <div id="recap-stat-xp" style="font-size: 1.05rem; font-weight: 800; color: var(--accent-violet);">+0 XP</div>
                     </div>
                     <div class="recap-item" style="background: rgba(251,191,36,0.05); border: 1px solid rgba(251,191,36,0.12); border-radius: var(--radius-md); padding: 14px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px;">
-                        <span style="font-size: 1.4rem; filter: drop-shadow(0 0 5px rgba(251,191,36,0.5));">🪙</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-primary); filter: drop-shadow(0 0 5px rgba(251,191,36,0.5));"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 10h8M8 14h8"/></svg>
                         <div style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-amber); font-weight: 700;" data-i18n="gold_gained">Or Obtenu</div>
                         <div id="recap-stat-gold" style="font-size: 1.05rem; font-weight: 800; color: var(--accent-amber);">+0</div>
                     </div>
@@ -952,7 +947,7 @@
                 <div class="game-connected-cover" id="connected-game-cover"></div>
                 <div class="game-connected-info">
                     <h3 id="connected-game-name"></h3>
-                    <p data-i18n="overlay_connection_desc">Suivi en arrière-plan actif • 🪙 +1/min</p>
+                    <p data-i18n="overlay_connection_desc">Suivi en arrière-plan actif • +1 Or/min</p>
                 </div>
             </div>
         </div>
@@ -990,11 +985,6 @@
         <div id="modal-changelog" class="modal" role="dialog" aria-labelledby="changelog-modal-title"
              style="max-width: 550px; padding: 28px; border: 1px solid rgba(167, 139, 250, 0.2); box-shadow: 0 0 35px rgba(167, 139, 250, 0.15), var(--shadow-lg); background: var(--bg-secondary); backdrop-filter: blur(20px);">
             <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px;">
-                <div class="update-icon-wrapper" style="width: 50px; height: 50px; border-radius: 12px; background: rgba(167, 139, 250, 0.08); border: 1.5px dashed var(--accent-violet); display: flex; align-items: center; justify-content: center; color: var(--accent-violet); animation: pulse-update-icon 2.5s infinite alternate;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px; animation: spin 12s linear infinite;">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                    </svg>
-                </div>
                 <div>
                     <span id="changelog-badge" style="font-size: 0.72rem; font-weight: 800; background: rgba(236, 72, 153, 0.15); color: var(--accent-pink); padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="changelog_badge">Mise à Jour</span>
                     <h2 id="changelog-modal-title" class="modal-title" style="margin: 4px 0 0 0; font-size: 1.5rem; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block;" data-i18n="changelog_title">Nouveautés de la Version</h2>
@@ -1007,7 +997,7 @@
                 <!-- Items populated dynamically in app.js -->
             </div>
             
-            <button id="btn-close-changelog" class="btn-primary btn-full" style="padding: 14px; font-weight: 700; background: var(--gradient-primary); box-shadow: var(--shadow-glow); border: none; color: white; cursor: pointer; border-radius: var(--radius-md);" data-i18n="changelog_btn">C'est parti ! 🚀</button>
+            <button id="btn-close-changelog" class="btn-primary btn-full" style="padding: 14px; font-weight: 700; background: var(--gradient-primary); box-shadow: var(--shadow-glow); border: none; color: white; cursor: pointer; border-radius: var(--radius-md);" data-i18n="changelog_btn">C'est parti !</button>
         </div>
     </div>
 

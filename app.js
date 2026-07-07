@@ -36,6 +36,39 @@ let state = {
 
 // ---------- Changelogs ----------
 const CHANGELOGS = {
+    '0.0.4': {
+        title: "Quest Log v0.0.4 — Polish & Themes",
+        date: "7 Juillet 2026",
+        badge: "Minor Update",
+        items: [
+            {
+                title: "Thèmes immersifs",
+                desc: "Les thèmes Émeraude, Bleu et Rose profitent d'arrière-plans et de conteneurs finement teintés pour une expérience encore plus colorée et soignée.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>
+                    <path d="M7.5 10.5C8.32843 10.5 9 9.82843 9 9C9 8.17157 8.32843 7.5 7.5 7.5C6.67157 7.5 6 8.17157 6 9C6 9.82843 6.67157 10.5 7.5 10.5Z"/>
+                    <path d="M11.5 7.5C12.3284 7.5 13 6.82843 13 6C13 5.17157 12.3284 4.5 11.5 4.5C10.6716 4.5 10 5.17157 10 6C10 6.82843 10.6716 7.5 11.5 7.5Z"/>
+                    <path d="M16.5 9.5C17.3284 9.5 18 8.82843 18 8C18 7.17157 17.3284 6.5 16.5 6.5C15.6716 6.5 15 7.17157 15 8C15 8.82843 15.6716 9.5 16.5 9.5Z"/>
+                </svg>`
+            },
+            {
+                title: "Nouveaux filtres de tri",
+                desc: "Tri intelligent par 'Succès débloqués' et 'Temps de jeu' sur vos listes 'À jouer' et 'Terminés' pour organiser votre backlog à votre rythme.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>`
+            },
+            {
+                title: "Tri de rareté & correctifs",
+                desc: "Classement automatique de vos succès débloqués par rareté RPG décroissante. Résolution des anomalies de traduction et uniformisation des toasts.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>`
+            }
+        ]
+    },
     '0.0.3': {
         title: "Quest Log v0.0.3 — Global Update",
         date: "7 Juillet 2026",
@@ -168,6 +201,7 @@ const CHANGELOGS = {
 
 // ---------- Update UI Flag ----------
 let isManualUpdateCheck = false;
+let sessionStartSnapshot = null;
 
 // ---------- Sound Synthesizer (Web Audio API) ----------
 function playSynthSound(type) {
@@ -232,6 +266,19 @@ function playSynthSound(type) {
             osc2.start(now);
             osc1.stop(now + 0.8);
             osc2.stop(now + 0.8);
+        } else if (type === 'tick') {
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(80, now + 0.05);
+            gain.gain.setValueAtTime(0.04, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
         }
     } catch (e) { console.warn('AudioContext failed:', e); }
 }
@@ -396,6 +443,41 @@ async function loadState() {
 
 const LOCALES = {
     fr: {
+        btn_add: "Ajouter",
+        toast_level_up: "🎉 NIVEAU {level} ATTEINT !",
+        toast_game_added: "🎮 {name} ajouté au backlog !",
+        toast_success_imported: "🏆 {count} succès importés !",
+        toast_appid_detected: "🔌 AppID Steam ({appId}) détecté localement !",
+        toast_local_ach_detected: "🏆 {count} succès locaux détectés !",
+        toast_windows_only: "🖥️ Disponible uniquement sur Windows.",
+        toast_exe_auto_found: "✅ Exécutable trouvé automatiquement : {name} !",
+        toast_exe_linked: "🎮 Exécutable associé avec succès !",
+        toast_steam_unlinked: "🔌 Liaison Steam retirée.",
+        toast_steam_linked: "🔌 Jeu lié à l'AppID Steam : {appId}",
+        toast_game_running: "⚠️ Un jeu est déjà en cours d'exécution.",
+        toast_game_starting: "🎮 Démarrage de {name}...",
+        toast_launch_error: "❌ Erreur : {error}",
+        toast_game_deleted: "🗑️ {name} supprimé",
+        toast_game_completed: "🏆 {name} terminé ! +{xp} XP • +{gold} 🪙 ! {rating}/5 ⭐",
+        toast_completion_detected: "🏆 Fin de jeu détectée pour {name} ! (Succès : {ach})",
+        toast_export_success: "📦 Données exportées !",
+        toast_invalid_file: "❌ Fichier invalide. Format non reconnu.",
+        toast_import_success: "📥 Import réussi : +{backlog} backlog, +{completed} terminés",
+        toast_reset_success: "🗑️ Toutes les données ont été supprimées.",
+        toast_discord_rpc_updated: "👾 Identifiant Discord RPC mis à jour !",
+        toast_discord_rpc_saved: "👾 Identifiant Discord RPC enregistré !",
+        toast_autolaunch_enabled: "⚙️ Lancement au démarrage activé !",
+        toast_autolaunch_disabled: "⚙️ Lancement au démarrage désactivé.",
+        toast_autolaunch_error: "❌ Erreur lors de la configuration.",
+        toast_welcome: "✨ Bienvenue dans ton Quest Log, {username} ! ⚔️",
+        toast_username_error: "⚠️ Le pseudo doit contenir au moins 2 caractères.",
+        toast_import_error: "❌ Erreur lors de l'import. Fichier corrompu ?",
+        toast_scanned_games_added: "🖥️ {count} jeu(x) ajouté(s) au backlog !",
+        toast_scanned_games_already_exist: "ℹ️ Tous les jeux sélectionnés étaient déjà présents.",
+        toast_game_restored: "↩️ {name} restauré",
+        toast_app_up_to_date: "✅ Quest Log est déjà à jour !",
+        toast_connection_error: "❌ Erreur de connexion : {error}",
+        toast_auto_launch_detected: "🔌 🎮 Lancement de {name} détecté !",
         quest_report: "Rapport de Quête",
         time_played: "Temps joué",
         xp_gained: "XP gagné",
@@ -418,7 +500,7 @@ const LOCALES = {
         stats: "Statistiques",
         settings: "Paramètres",
         add_game: "Ajouter",
-        app_title: "Quest Log - Beta 0.0.3",
+        app_title: "Quest Log - Beta 0.0.4",
         global_progress: "Progression Globale",
         filter_placeholder: "Filtrer...",
         title_backlog: "Jeux dans le backlog",
@@ -427,13 +509,15 @@ const LOCALES = {
         title_playtime: "Temps de jeu total",
         title_rating: "Note moyenne",
         title_sort: "Trier",
-        sort_newest: "📅 Plus récent",
-        sort_oldest: "📅 Plus ancien",
-        sort_az: "🔤 A → Z",
-        sort_za: "🔤 Z → A",
-        sort_platform: "🖥️ Par plateforme",
-        sort_genre: "🎭 Par genre",
-        sort_rating: "⭐ Par note",
+        sort_newest: "Plus récent",
+        sort_oldest: "Plus ancien",
+        sort_az: "A → Z",
+        sort_za: "Z → A",
+        sort_platform: "Par plateforme",
+        sort_genre: "Par genre",
+        sort_rating: "Par note",
+        sort_achievements: "Succès débloqués",
+        sort_playtime: "Temps de jeu",
         backlog_empty_title: "Ton backlog est vide !",
         backlog_empty_subtitle: "Ajoute des jeux pour commencer ton aventure",
         completed_empty_title: "Aucun jeu terminé",
@@ -441,9 +525,9 @@ const LOCALES = {
         modal_tab_search: "Rechercher un jeu",
         modal_tab_scanner: "Scanner PC",
         search_input_placeholder: "Rechercher un jeu... (ex: Zelda, Hollow Knight)",
-        filter_popular: "🔥 Populaire",
-        filter_newest: "📅 Nouveautés",
-        filter_best_rating: "⭐ Mieux notés",
+        filter_popular: "Populaire",
+        filter_newest: "Nouveautés",
+        filter_best_rating: "Mieux notés",
         filter_all_platforms: "Toutes plateformes",
         filter_all_genres: "Tous genres",
         search_start_desc: "Tape le nom d'un jeu pour lancer la recherche",
@@ -495,7 +579,7 @@ const LOCALES = {
         rating_submit_btn: "Valider la note",
         destiny_title: "SÉLECTION DE QUÊTE",
         destiny_chosen: "Le Destin a Choisi...",
-        destiny_btn: "C'est parti ! ⚔️",
+        destiny_btn: "C'est parti !",
         first_launch_title: "Démarrer ton Aventure",
         first_launch_desc: "Crée ton profil d'aventurier Quest Log pour commencer à accumuler de l'XP et des pièces d'or !",
         first_launch_username: "Nom de l'aventurier",
@@ -510,7 +594,7 @@ const LOCALES = {
         overlay_connection_desc: "Suivi en arrière-plan actif • 🪙 +1/min",
         changelog_badge: "Mise à Jour",
         changelog_title: "Nouveautés de la Version",
-        changelog_btn: "C'est parti ! 🚀",
+        changelog_btn: "C'est parti !",
         update_available_title: "Mise à Jour Disponible",
         update_downloading_text: "Téléchargement en cours...",
         update_btn_later: "Plus tard",
@@ -533,6 +617,41 @@ const LOCALES = {
         now_playing_skip: "Passer"
     },
     en: {
+        btn_add: "Add Game",
+        toast_level_up: "🎉 LEVEL {level} REACHED!",
+        toast_game_added: "🎮 {name} added to backlog!",
+        toast_success_imported: "🏆 {count} achievements imported!",
+        toast_appid_detected: "🔌 Steam AppID ({appId}) detected locally!",
+        toast_local_ach_detected: "🏆 {count} local achievements detected!",
+        toast_windows_only: "🖥️ Only available on Windows.",
+        toast_exe_auto_found: "✅ Executable found automatically: {name}!",
+        toast_exe_linked: "🎮 Executable linked successfully!",
+        toast_steam_unlinked: "🔌 Steam link removed.",
+        toast_steam_linked: "🔌 Game linked to Steam AppID: {appId}",
+        toast_game_running: "⚠️ A game is already running.",
+        toast_game_starting: "🎮 Launching {name}...",
+        toast_launch_error: "❌ Error: {error}",
+        toast_game_deleted: "🗑️ {name} deleted",
+        toast_game_completed: "🏆 {name} completed! +{xp} XP • +{gold} 🪙! {rating}/5 ⭐",
+        toast_completion_detected: "🏆 Game completion detected for {name}! (Achievement: {ach})",
+        toast_export_success: "📦 Data exported!",
+        toast_invalid_file: "❌ Invalid file. Format not recognized.",
+        toast_import_success: "📥 Import success: +{backlog} backlog, +{completed} completed",
+        toast_reset_success: "🗑️ All data has been deleted.",
+        toast_discord_rpc_updated: "👾 Discord RPC Client ID updated!",
+        toast_discord_rpc_saved: "👾 Discord RPC Client ID saved!",
+        toast_autolaunch_enabled: "⚙️ Launch at startup enabled!",
+        toast_autolaunch_disabled: "⚙️ Launch at startup disabled.",
+        toast_autolaunch_error: "❌ Error during configuration.",
+        toast_welcome: "✨ Welcome to your Quest Log, {username}! ⚔️",
+        toast_username_error: "⚠️ Username must be at least 2 characters.",
+        toast_import_error: "❌ Import error. Corrupted file?",
+        toast_scanned_games_added: "🖥️ {count} game(s) added to backlog!",
+        toast_scanned_games_already_exist: "ℹ️ All selected games were already present.",
+        toast_game_restored: "↩️ {name} restored",
+        toast_app_up_to_date: "✅ Quest Log is already up to date!",
+        toast_connection_error: "❌ Connection error: {error}",
+        toast_auto_launch_detected: "🔌 🎮 Launch of {name} detected!",
         quest_report: "Quest Report",
         time_played: "Time played",
         xp_gained: "XP gained",
@@ -555,7 +674,7 @@ const LOCALES = {
         stats: "Statistics",
         settings: "Settings",
         add_game: "Add Game",
-        app_title: "Quest Log - Beta 0.0.3",
+        app_title: "Quest Log - Beta 0.0.4",
         global_progress: "Global Progress",
         filter_placeholder: "Filter list...",
         title_backlog: "Games in backlog",
@@ -564,13 +683,15 @@ const LOCALES = {
         title_playtime: "Total playtime",
         title_rating: "Average rating",
         title_sort: "Sort",
-        sort_newest: "📅 Newest",
-        sort_oldest: "📅 Oldest",
-        sort_az: "🔤 A → Z",
-        sort_za: "🔤 Z → A",
-        sort_platform: "🖥️ By platform",
-        sort_genre: "🎭 By genre",
-        sort_rating: "⭐ By rating",
+        sort_newest: "Newest",
+        sort_oldest: "Oldest",
+        sort_az: "A → Z",
+        sort_za: "Z → A",
+        sort_platform: "By platform",
+        sort_genre: "By genre",
+        sort_rating: "By rating",
+        sort_achievements: "Unlocked achievements",
+        sort_playtime: "Playtime",
         backlog_empty_title: "Your backlog is empty!",
         backlog_empty_subtitle: "Add games to begin your adventure",
         completed_empty_title: "No completed games",
@@ -578,9 +699,9 @@ const LOCALES = {
         modal_tab_search: "Search Game",
         modal_tab_scanner: "PC Scanner",
         search_input_placeholder: "Search for a game... (e.g. Zelda, Hollow Knight)",
-        filter_popular: "🔥 Popular",
-        filter_newest: "📅 New releases",
-        filter_best_rating: "⭐ Best rated",
+        filter_popular: "Popular",
+        filter_newest: "New releases",
+        filter_best_rating: "Best rated",
         filter_all_platforms: "All platforms",
         filter_all_genres: "All genres",
         search_start_desc: "Type a game's name to launch the search",
@@ -632,7 +753,7 @@ const LOCALES = {
         rating_submit_btn: "Submit Rating",
         destiny_title: "QUEST SELECTION",
         destiny_chosen: "Destiny Has Chosen...",
-        destiny_btn: "Let's Go! ⚔️",
+        destiny_btn: "Let's Go!",
         first_launch_title: "Start Your Adventure",
         first_launch_desc: "Create your adventurer profile to start earning XP and gold!",
         first_launch_username: "Adventurer Name",
@@ -647,7 +768,7 @@ const LOCALES = {
         overlay_connection_desc: "Background tracking active • 🪙 +1/min",
         changelog_badge: "Update",
         changelog_title: "Version Highlights",
-        changelog_btn: "Let's Go! 🚀",
+        changelog_btn: "Let's Go!",
         update_available_title: "Update Available",
         update_downloading_text: "Downloading update...",
         update_btn_later: "Later",
@@ -715,9 +836,12 @@ const GAMER_QUOTES = [
 ];
 let currentQuoteIndex = Math.floor(Math.random() * GAMER_QUOTES.length);
 
-function updateGamerQuote() {
+function updateGamerQuote(newRandom = false) {
     const el = $('#gamer-quote');
     if (!el) return;
+    if (newRandom) {
+        currentQuoteIndex = Math.floor(Math.random() * GAMER_QUOTES.length);
+    }
     const lang = state.language || 'fr';
     const qObj = GAMER_QUOTES[currentQuoteIndex];
     if (qObj) {
@@ -789,6 +913,15 @@ function applyLanguage(lang) {
     if (detailsOverlay && currentDetailsId && detailsOverlay.classList.contains('active')) {
         openGameDetails(currentDetailsId, currentDetailsSource === 'completed');
     }
+}
+
+function getTranslation(key, params = {}) {
+    const lang = state.language || 'fr';
+    let text = LOCALES[lang][key] || LOCALES['fr'][key] || key;
+    for (const [pKey, pVal] of Object.entries(params)) {
+        text = text.replaceAll(`{${pKey}}`, pVal);
+    }
+    return text;
 }
 
 function applyTheme(themeName) {
@@ -918,6 +1051,12 @@ function sortGames(list, sortType) {
         case 'platform': sorted.sort((a, b) => a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name, 'fr')); break;
         case 'genre': sorted.sort((a, b) => a.genre.localeCompare(b.genre) || a.name.localeCompare(b.name, 'fr')); break;
         case 'rating': sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break;
+        case 'achievements-desc': sorted.sort((a, b) => {
+            const countA = a.achievements ? a.achievements.filter(x => x.unlocked).length : 0;
+            const countB = b.achievements ? b.achievements.filter(x => x.unlocked).length : 0;
+            return countB - countA || a.name.localeCompare(b.name, 'fr');
+        }); break;
+        case 'playtime-desc': sorted.sort((a, b) => (b.playtime || 0) - (a.playtime || 0) || a.name.localeCompare(b.name, 'fr')); break;
     }
     return sorted;
 }
@@ -1226,28 +1365,136 @@ async function performSearch(query, append = false) {
 }
 
 // ---------- UI Interaction ----------
+// ---------- UI Interaction ----------
 function showToast(message, icon = '✅') {
     const toast = document.createElement('div');
     toast.className = 'toast';
     const TOAST_ICONS = {
-        '✅': `<svg class="stat-svg" style="color:var(--accent-emerald); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-        '❌': `<svg class="stat-svg" style="color:var(--accent-red); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-        '🎮': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>`,
-        '🔌': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.5a3 3 0 0 0-3-3h-3a3 3 0 0 0-3 3H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h1.5a3 3 0 0 0 3-3h3a3 3 0 0 0 3 3H18a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z"/><path d="M2 14h2M20 14h2M12 2v5M12 17v5"/></svg>`,
-        '🏆': `<svg class="stat-svg" style="color:var(--accent-amber); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/><path d="M12 2a6 6 0 0 1 6 6v3.5a6 6 0 0 1-12 0V8a6 6 0 0 1 6-6z"/></svg>`,
-        'ℹ️': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
-        '📦': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
-        '🗑️': `<svg class="stat-svg" style="color:var(--accent-red); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
-        '⚠️': `<svg class="stat-svg" style="color:var(--accent-amber); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-        '⭐': `<svg class="stat-svg" style="color:var(--accent-amber); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-        '🖥️': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
-        '⚙️': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
-        '📥': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>`,
-        '↩️': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>`,
-        '🌐': `<svg class="stat-svg" style="width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`
+        '✅': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        '❌': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+        '🎮': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="3"/></svg>`,
+        '🔌': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.5a3 3 0 0 0-3-3h-3a3 3 0 0 0-3 3H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h1.5a3 3 0 0 0 3-3h3a3 3 0 0 0 3 3H18a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z"/><path d="M2 14h2M20 14h2M12 2v5M12 17v5"/></svg>`,
+        '🏆': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/><path d="M12 2a6 6 0 0 1 6 6v3.5a6 6 0 0 1-12 0V8a6 6 0 0 1 6-6z"/></svg>`,
+        'ℹ️': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+        '📦': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+        '🗑️': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
+        '⚠️': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+        '⭐': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+        '🖥️': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+        '⚙️': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+        '📥': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>`,
+        '↩️': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>`,
+        '🌐': `<svg class="stat-svg" style="color:var(--text-primary); width:16px; height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`
     };
+
+    // Auto-translate toast content to adapt dynamically to language
+    let translatedMessage = message;
+    const isEn = state.language === 'en';
+    
+    if (message.startsWith('🎉 NIVEAU ') || message.startsWith('🎉 LEVEL ')) {
+        const lvl = (message.match(/\d+/) || [1])[0];
+        translatedMessage = isEn ? `🎉 LEVEL ${lvl} REACHED!` : `🎉 NIVEAU ${lvl} ATTEINT !`;
+    } else if (message.includes(' ajouté au backlog !') || message.includes(' added to backlog!')) {
+        const name = message.replace(' ajouté au backlog !', '').replace(' added to backlog!', '');
+        translatedMessage = isEn ? `${name} added to backlog!` : `${name} ajouté au backlog !`;
+    } else if (message.includes(' succès importés !') || message.includes(' achievements imported!')) {
+        const count = (message.match(/\d+/) || [0])[0];
+        translatedMessage = isEn ? `${count} achievements imported!` : `${count} succès importés !`;
+    } else if (message.startsWith('AppID Steam') || message.startsWith('Steam AppID')) {
+        const appId = (message.match(/\d+/) || [''])[0];
+        translatedMessage = isEn ? `Steam AppID (${appId}) detected locally!` : `AppID Steam (${appId}) détecté localement !`;
+    } else if (message.includes(' succès locaux détectés !') || message.includes(' local achievements detected!')) {
+        const count = (message.match(/\d+/) || [0])[0];
+        translatedMessage = isEn ? `${count} local achievements detected!` : `${count} succès locaux détectés !`;
+    } else if (message === 'Disponible uniquement sur Windows.' || message === 'Only available on Windows.') {
+        translatedMessage = isEn ? 'Only available on Windows.' : 'Disponible uniquement sur Windows.';
+    } else if (message.startsWith('Exécutable trouvé automatiquement') || message.startsWith('Executable found automatically')) {
+        const name = message.split(' : ').pop().replace(' !', '').replace('!', '');
+        translatedMessage = isEn ? `Executable found automatically: ${name}!` : `Exécutable trouvé automatiquement : ${name} !`;
+    } else if (message === 'Exécutable associé avec succès !' || message === 'Executable linked successfully!') {
+        translatedMessage = isEn ? 'Executable linked successfully!' : 'Exécutable associé avec succès !';
+    } else if (message === 'Liaison Steam retirée.' || message === 'Steam link removed.') {
+        translatedMessage = isEn ? 'Steam link removed.' : 'Liaison Steam retirée.';
+    } else if (message.startsWith("Jeu lié à l'AppID Steam") || message.startsWith("Game linked to Steam AppID")) {
+        const appId = (message.match(/\d+/) || [''])[0];
+        translatedMessage = isEn ? `Game linked to Steam AppID: ${appId}` : `Jeu lié à l'AppID Steam : ${appId}`;
+    } else if (message === "Un jeu est déjà en cours d'exécution." || message === "A game is already running.") {
+        translatedMessage = isEn ? 'A game is already running.' : "Un jeu est déjà en cours d'exécution.";
+    } else if (message.startsWith('Démarrage de ') || message.startsWith('Launching ')) {
+        const name = message.replace('Démarrage de ', '').replace('Launching ', '').replace('...', '');
+        translatedMessage = isEn ? `Launching ${name}...` : `Démarrage de ${name}...`;
+    } else if (message.startsWith('Erreur : ') || message.startsWith('Error: ')) {
+        const err = message.replace('Erreur : ', '').replace('Error: ', '');
+        translatedMessage = isEn ? `Error: ${err}` : `Erreur : ${err}`;
+    } else if (message.endsWith(' supprimé') || message.endsWith(' deleted')) {
+        const name = message.replace(' supprimé', '').replace(' deleted', '');
+        translatedMessage = isEn ? `${name} deleted` : `${name} supprimé`;
+    } else if (message.includes(' terminé !') || message.includes(' completed!')) {
+        const name = message.split(' terminé !')[0].split(' completed!')[0].replace('🏆 ', '');
+        const xp = (message.match(/\+(\d+)\s*XP/) || [0,0])[1];
+        const gold = (message.match(/\+(\d+)\s*🪙/) || [0,0])[1];
+        const rating = (message.match(/(\d+)\/5/) || [0,0])[1];
+        translatedMessage = isEn 
+            ? `🏆 ${name} completed! +${xp} XP • +${gold} 🪙! ${rating}/5 ⭐` 
+            : `🏆 ${name} terminé ! +${xp} XP • +${gold} 🪙 ! ${rating}/5 ⭐`;
+    } else if (message.startsWith('🏆 Fin de jeu détectée') || message.startsWith('🏆 Game completion detected')) {
+        const namePart = message.match(/pour (.+?) !/);
+        const name = namePart ? namePart[1] : '';
+        const achPart = message.match(/Succès : (.+?)\)/);
+        const ach = achPart ? achPart[1] : '';
+        translatedMessage = isEn ? `🏆 Game completion detected for ${name}! (Achievement: ${ach})` : `🏆 Fin de jeu détectée pour ${name} ! (Succès : ${ach})`;
+    } else if (message === 'Données exportées !' || message === 'Data exported!') {
+        translatedMessage = isEn ? 'Data exported!' : 'Données exportées !';
+    } else if (message === 'Fichier invalide. Format non reconnu.' || message === 'Invalid file. Format not recognized.') {
+        translatedMessage = isEn ? 'Invalid file. Format not recognized.' : 'Fichier invalide. Format non reconnu.';
+    } else if (message.startsWith('Import réussi') || message.startsWith('Import success')) {
+        const bCount = (message.match(/\+(\d+)\s*backlog/) || [0,0])[1];
+        const cCount = (message.match(/\+(\d+)\s*terminés/) || [0,0])[1] || (message.match(/\+(\d+)\s*completed/) || [0,0])[1];
+        translatedMessage = isEn ? `Import success: +${bCount} backlog, +${cCount} completed` : `Import réussi : +${bCount} backlog, +${cCount} terminés`;
+    } else if (message === 'Toutes les données ont été supprimées.' || message === 'All data has been deleted.') {
+        translatedMessage = isEn ? 'All data has been deleted.' : 'Toutes les données ont été supprimées.';
+    } else if (message === 'Identifiant Discord RPC mis à jour !' || message === 'Discord RPC Client ID updated!') {
+        translatedMessage = isEn ? 'Discord RPC Client ID updated!' : 'Identifiant Discord RPC mis à jour !';
+    } else if (message === 'Identifiant Discord RPC enregistré !' || message === 'Discord RPC Client ID saved!') {
+        translatedMessage = isEn ? 'Discord RPC Client ID saved!' : 'Identifiant Discord RPC enregistré !';
+    } else if (message === 'Lancement au démarrage activé !' || message === 'Launch at startup enabled!') {
+        translatedMessage = isEn ? 'Launch at startup enabled!' : 'Lancement au démarrage activé !';
+    } else if (message === 'Lancement au démarrage désactivé.' || message === 'Launch at startup disabled.') {
+        translatedMessage = isEn ? 'Launch at startup disabled.' : 'Lancement au démarrage désactivé.';
+    } else if (message === 'Erreur lors de la configuration.' || message === 'Error during configuration.') {
+        translatedMessage = isEn ? 'Error during configuration.' : 'Erreur lors de la configuration.';
+    } else if (message.startsWith('Bienvenue dans ton Quest Log') || message.startsWith('Welcome to your Quest Log')) {
+        const user = message.replace('Bienvenue dans ton Quest Log, ', '').replace('Welcome to your Quest Log, ', '').replace(' ! ⚔️', '').replace('! ⚔️', '');
+        translatedMessage = isEn ? `✨ Welcome to your Quest Log, ${user}! ⚔️` : `✨ Bienvenue dans ton Quest Log, ${user} ! ⚔️`;
+    } else if (message === 'Le pseudo doit contenir au moins 2 caractères.' || message === 'Username must be at least 2 characters.') {
+        translatedMessage = isEn ? 'Username must be at least 2 characters.' : 'Le pseudo doit contenir au moins 2 caractères.';
+    } else if (message === "Erreur lors de l'import. Fichier corrompu ?" || message === 'Import error. Corrupted file?') {
+        translatedMessage = isEn ? 'Import error. Corrupted file?' : "Erreur lors de l'import. Fichier corrompu ?";
+    } else if (message.includes('jeu(x) ajouté(s) au backlog') || message.includes('game(s) added to backlog')) {
+        const count = (message.match(/\d+/) || [0])[0];
+        translatedMessage = isEn ? `${count} game(s) added to backlog!` : `${count} jeu(x) ajouté(s) au backlog !`;
+    } else if (message === 'Tous les jeux sélectionnés étaient déjà présents.' || message === 'All selected games were already present.') {
+        translatedMessage = isEn ? 'All selected games were already present.' : 'Tous les jeux sélectionnés étaient déjà présents.';
+    } else if (message.endsWith(' restauré') || message.endsWith(' restored')) {
+        const name = message.split(' restauré')[0].split(' restored')[0];
+        translatedMessage = isEn ? `${name} restored` : `${name} restauré`;
+    } else if (message === 'Quest Log est déjà à jour !' || message === 'Quest Log is already up to date!') {
+        translatedMessage = isEn ? 'Quest Log is already up to date!' : 'Quest Log est déjà à jour !';
+    } else if (message.startsWith('Erreur de connexion :') || message.startsWith('Connection error:')) {
+        const err = message.replace('Erreur de connexion : ', '').replace('Connection error: ', '');
+        translatedMessage = isEn ? `Connection error: ${err}` : `Erreur de connexion : ${err}`;
+    } else if (message.startsWith('🎮 Lancement de ') || message.startsWith('🎮 Launch of ')) {
+        const name = message.replace('🎮 Lancement de ', '').replace('🎮 Launch of ', '').replace(' détecté !', '').replace(' detected!', '');
+        translatedMessage = isEn ? `🎮 Launch of ${name} detected!` : `🎮 Lancement de ${name} détecté !`;
+    } else if (message === 'Session terminée !' || message === 'Session ended!') {
+        translatedMessage = isEn ? 'Session ended!' : 'Session terminée !';
+    } else if (message.startsWith('Session terminée ! +') || message.startsWith('Session ended! +')) {
+        const xp = message.match(/\+(\d+)\s*XP/)[1];
+        translatedMessage = isEn ? `Session ended! +${xp} XP gained!` : `Session terminée ! +${xp} XP gagnés !`;
+    }
+
     const iconContent = TOAST_ICONS[icon] || icon;
-    toast.innerHTML = `<span class="toast-icon">${iconContent}</span><span>${message}</span>`;
+    toast.innerHTML = `<span class="toast-icon">${iconContent}</span><span>${translatedMessage}</span>`;
     $('#toast-container').appendChild(toast);
     setTimeout(() => {
         toast.classList.add('toast-out');
@@ -1488,7 +1735,7 @@ async function fetchAchievementsFromSteam(game) {
                     return cleanLoc === cleanApi || cleanLoc === cleanName || cleanLoc.includes(cleanApi) || cleanApi.includes(cleanLoc);
                 });
 
-                const oldAch = game.achievements ? game.achievements.find(o => o.apiname === ach.apiname) : null;
+                const oldAch = game.achievements ? game.achievements.find(o => o.apiname.toLowerCase() === ach.apiname.toLowerCase()) : null;
                 const isCachedUnlocked = oldAch ? oldAch.unlocked : false;
 
                 return {
@@ -1506,7 +1753,7 @@ async function fetchAchievementsFromSteam(game) {
 
                 if (!wasSimulated) {
                     mapped.forEach(newAch => {
-                        const oldAch = game.achievements.find(o => o.apiname === newAch.apiname);
+                        const oldAch = game.achievements.find(o => o.apiname.toLowerCase() === newAch.apiname.toLowerCase());
                         if (newAch.unlocked && (!oldAch || !oldAch.unlocked)) {
                             addXp(250);
                             addGold(50);
@@ -1593,14 +1840,53 @@ function renderAchievementsInDetails(game) {
     ratio.textContent = `${unlocked} / ${total}`;
     fill.style.width = `${pct}%`;
 
-    // Sort unlocked first, then locked
-    const sorted = [...game.achievements].sort((a, b) => (b.unlocked ? 1 : 0) - (a.unlocked ? 1 : 0));
+    // Helper to calculate rarity weight (Legendary = 4, Epic = 3, Rare = 2, Common = 1)
+    const getRarityWeight = (apiname) => {
+        if (!apiname) return 1;
+        let hash = 0;
+        for (let i = 0; i < apiname.length; i++) {
+            hash = apiname.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const pct = Math.abs(hash % 100);
+        if (pct < 5) return 4;
+        if (pct < 20) return 3;
+        if (pct < 50) return 2;
+        return 1;
+    };
+
+    // Sort: unlocked achievements first (sorted by rarity weight), then locked achievements below
+    const sorted = [...game.achievements].sort((a, b) => {
+        if (a.unlocked !== b.unlocked) {
+            return b.unlocked ? 1 : -1;
+        }
+        if (a.unlocked) {
+            const wA = getRarityWeight(a.apiname);
+            const wB = getRarityWeight(b.apiname);
+            return wB - wA;
+        }
+        return 0; // Keep original order for locked achievements
+    });
 
     sorted.forEach(ach => {
         const item = document.createElement('div');
-        item.className = `achievement-item ${ach.unlocked ? 'unlocked' : ''}`;
+        
+        // Determine rarity
+        let rarity = 'common';
+        const weight = getRarityWeight(ach.apiname);
+        if (weight === 4) rarity = 'legendary';
+        else if (weight === 3) rarity = 'epic';
+        else if (weight === 2) rarity = 'rare';
 
-        // Achievements are no longer manually unlockable to prevent cheating/bugs
+        const rarityText = {
+            legendary: state.language === 'en' ? 'Legendary' : 'Légendaire',
+            epic: state.language === 'en' ? 'Epic' : 'Épique',
+            rare: state.language === 'en' ? 'Rare' : 'Rare',
+            common: state.language === 'en' ? 'Common' : 'Commun'
+        };
+
+        item.className = `achievement-item ${ach.unlocked ? 'unlocked' : ''} rarity-${rarity}`;
+
+
 
         const iconHtml = ach.icon
             ? `<img src="${ach.icon}" alt="Icon">`
@@ -1612,7 +1898,7 @@ function renderAchievementsInDetails(game) {
                 <span class="achievement-name">${ach.name}</span>
                 <span class="achievement-desc">${ach.description}</span>
             </div>
-            ${ach.unlocked ? '<span class="achievement-rarity">Unlock</span>' : ''}
+            ${ach.unlocked ? `<span class="achievement-rarity">${rarityText[rarity]}</span>` : ''}
         `;
         list.appendChild(item);
     });
@@ -1728,6 +2014,14 @@ async function startPlaySession(game, isAutoDetect = false) {
         return;
     }
 
+    // Capture initial state for session recap
+    sessionStartSnapshot = {
+        xp: state.profile ? state.profile.xp : 0,
+        level: state.profile ? state.profile.level : 1,
+        gold: state.profile ? state.profile.gold : 0,
+        unlockedApinames: game.achievements ? game.achievements.filter(a => a.unlocked).map(a => a.apiname) : []
+    };
+
     if (!isAutoDetect) {
         if (!game.exePath) {
             await selectExeFile(game);
@@ -1824,24 +2118,116 @@ async function stopPlaySession() {
     if (game) {
         const elapsedMinutes = Math.round((Date.now() - activePlaySession.startTime) / 60000);
         const xpEarned = elapsedMinutes * 5; // 5 XP per minute played
+        const goldEarned = elapsedMinutes * 1; // 1 gold per minute played
+
+        // Award rewards
         if (xpEarned > 0) {
-            addXp(xpEarned);
-            showToast(`Session terminée ! +${xpEarned} XP gagnés !`, "⭐");
-        } else {
-            showToast("Session terminée !", "🎮");
+            await addXp(xpEarned);
         }
+        if (goldEarned > 0) {
+            await addGold(goldEarned);
+        }
+
+        // Trigger visual recap overlay
+        showSessionRecap(game, elapsedMinutes, xpEarned, goldEarned);
     }
 
     activePlaySession = null;
+    state.currentGameId = null;
     await saveState();
     renderAll();
 
     if (currentDetailsId && game && currentDetailsId === game.id) {
         const playBtn = $('#btn-play-game');
-        playBtn.innerHTML = '<span>▶️ Lancer le jeu</span>';
+        playBtn.innerHTML = '<span style="display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Lancer le jeu</span>';
         playBtn.className = 'btn-primary btn-full';
         $('#launcher-status').textContent = game.exePath ? game.exePath.split('\\').pop() : 'Aucun exécutable lié';
     }
+}
+
+function showSessionRecap(game, elapsedMinutes, xpEarned, goldEarned) {
+    const overlay = $('#session-recap-overlay');
+    if (!overlay) return;
+
+    // Game Metadata
+    $('#recap-game-name').textContent = game.name;
+    $('#recap-game-meta').textContent = `${game.platform} • ${game.genre}`;
+    if (game.cover) {
+        $('#recap-game-cover').style.backgroundImage = `url('${game.cover}')`;
+        $('#recap-game-cover').style.display = 'block';
+    } else {
+        $('#recap-game-cover').style.display = 'none';
+    }
+
+    // Stats
+    $('#recap-stat-time').textContent = `${elapsedMinutes} min`;
+    $('#recap-stat-xp').textContent = `+${xpEarned} XP`;
+    $('#recap-stat-gold').textContent = `+${goldEarned}`;
+
+    // Level Up Check
+    const startLevel = sessionStartSnapshot ? sessionStartSnapshot.level : 1;
+    const currentLevel = state.profile ? state.profile.level : 1;
+    const banner = $('#recap-level-up-banner');
+    if (currentLevel > startLevel) {
+        banner.style.display = 'block';
+        $('#recap-new-level').textContent = state.language === 'en'
+            ? `New level reached: ${currentLevel}`
+            : `Nouveau niveau atteint : ${currentLevel}`;
+        playSynthSound('levelup');
+    } else {
+        banner.style.display = 'none';
+    }
+
+    // Achievements list delta check
+    const snapshotApinames = sessionStartSnapshot ? sessionStartSnapshot.unlockedApinames : [];
+    const sessionUnlockedAchs = game.achievements ? game.achievements.filter(a => a.unlocked && !snapshotApinames.includes(a.apiname)) : [];
+    const achSection = $('#recap-achievements-section');
+    const achList = $('#recap-achievements-list');
+    achList.innerHTML = '';
+
+    if (sessionUnlockedAchs.length > 0) {
+        achSection.style.display = 'flex';
+        sessionUnlockedAchs.forEach(ach => {
+            const achItem = document.createElement('div');
+            achItem.className = 'recap-ach-item';
+            
+            const iconHtml = ach.icon
+                ? `<div class="recap-ach-icon" style="background-image: url('${ach.icon}')"></div>`
+                : `<div class="recap-ach-icon" style="display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); font-size: 1rem;">🏆</div>`;
+                
+            achItem.innerHTML = `
+                ${iconHtml}
+                <div style="overflow: hidden; flex-grow: 1;">
+                    <div class="recap-ach-name">${ach.name}</div>
+                    <div class="recap-ach-desc">${ach.description}</div>
+                </div>
+            `;
+            achList.appendChild(achItem);
+        });
+    } else {
+        achSection.style.display = 'none';
+    }
+
+    // Display modal and trigger animations
+    openModal(overlay);
+
+    const items = overlay.querySelectorAll('.recap-item');
+    items.forEach(el => el.classList.remove('animate'));
+
+    // Force DOM flow recalculation
+    overlay.offsetHeight;
+
+    items.forEach(el => {
+        el.classList.add('animate');
+    });
+
+    // Close button registration
+    const confirmBtn = $('#btn-session-recap-confirm');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    newConfirmBtn.addEventListener('click', () => {
+        closeModal(overlay);
+    });
 }
 
 function showGameConnectedOverlay(game) {
@@ -2181,11 +2567,91 @@ function pickRandomGame(showAnimation = true) {
     if (showAnimation) {
         const overlay = $('#random-pick-overlay');
         openModal(overlay);
-        $('#random-pick-wheel').style.display = 'flex';
+
+        $('#random-pick-result').style.display = 'none';
         $('#random-pick-result').classList.remove('visible');
 
+        const track = $('#roulette-track');
+        track.innerHTML = '';
+
+        // Mix and repeat backlog items to build a scrolling ribbon
+        const list = [];
+        const backlogCopy = [...state.backlog];
+        
+        // Shuffle backlog copy
+        for (let i = backlogCopy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [backlogCopy[i], backlogCopy[j]] = [backlogCopy[j], backlogCopy[i]];
+        }
+
+        // Fill up to 60 items
+        while (list.length < 60) {
+            list.push(...backlogCopy);
+        }
+
+        const rouletteItems = list.slice(0, 60);
+        const targetIndex = 55;
+        rouletteItems[targetIndex] = picked;
+
+        // Populate track cards (80px height each)
+        rouletteItems.forEach(game => {
+            const item = document.createElement('div');
+            item.style.height = '80px';
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.gap = '12px';
+            item.style.padding = '0 16px';
+            item.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+            item.style.width = '100%';
+            item.style.boxSizing = 'border-box';
+
+            const coverUrl = game.cover || '';
+            const coverHtml = coverUrl
+                ? `<div style="width: 40px; height: 55px; border-radius: 4px; background-image: url('${coverUrl}'); background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;"></div>`
+                : `<div style="width: 40px; height: 55px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;">🎮</div>`;
+
+            item.innerHTML = `
+                ${coverHtml}
+                <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1;">
+                    <div style="font-size: 0.9rem; font-weight: 700; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${game.name}</div>
+                    <div style="font-size: 0.72rem; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${game.platform}</div>
+                </div>
+            `;
+            track.appendChild(item);
+        });
+
+        // Spin physics trigger
+        track.style.transition = 'none';
+        track.style.transform = 'translateY(10px)';
+        track.offsetHeight; // force reflow
+
+        const targetOffset = targetIndex * 80 - 10;
+        track.style.transition = 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)';
+        track.style.transform = `translateY(-${targetOffset}px)`;
+
+        // Synthesize rolling audio clicks
+        const startAudioTime = performance.now();
+        const duration = 4000;
+        let lastTickIndex = 0;
+
+        function tickStep(now) {
+            const elapsed = now - startAudioTime;
+            if (elapsed < duration) {
+                const progress = elapsed / duration;
+                const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+                const currentY = ease * targetOffset;
+                const currentIndex = Math.floor(currentY / 80);
+                if (currentIndex > lastTickIndex) {
+                    playSynthSound('tick');
+                    lastTickIndex = currentIndex;
+                }
+                requestAnimationFrame(tickStep);
+            }
+        }
+        requestAnimationFrame(tickStep);
+
+        // Display results at scroll end
         setTimeout(() => {
-            $('#random-pick-wheel').style.display = 'none';
             $('#random-pick-name').textContent = picked.name;
             $('#random-pick-platform').textContent = `${picked.platform} • ${picked.genre}`;
             if (picked.cover) {
@@ -2194,11 +2660,21 @@ function pickRandomGame(showAnimation = true) {
             } else {
                 $('#random-pick-cover').style.display = 'none';
             }
+
+            $('#random-pick-result').style.display = 'flex';
             $('#random-pick-result').classList.add('visible');
+
+            playSynthSound('connect');
+            if (window.launchConfetti) window.launchConfetti();
+
             state.currentGameId = picked.id;
             saveState();
             renderAll();
-        }, 2000);
+
+            $('#btn-accept-pick').onclick = () => {
+                closeModal(overlay);
+            };
+        }, 4000);
     } else {
         state.currentGameId = picked.id;
         saveState();
@@ -3064,6 +3540,10 @@ async function init() {
     createParticles();
     initEvents();
     renderAll();
+    
+    // Initialize gamer quote and bind interactivity
+    updateGamerQuote();
+    $('#gamer-quote')?.addEventListener('click', () => updateGamerQuote(true));
 
     if (isElectron) {
         window.questlog.onGameClosed((gameId) => {
@@ -3093,6 +3573,14 @@ async function init() {
             if (!activePlaySession) return;
             const game = state.backlog.find(g => g.id === activePlaySession.gameId);
             if (!game) return;
+
+            // Ensure achievements are loaded to prevent property lookup exceptions
+            if (!game.achievements || game.achievements.length === 0) {
+                await fetchAchievementsFromSteam(game);
+            }
+            if (!game.achievements) {
+                game.achievements = [];
+            }
 
             let updatedAny = false;
             for (const apiname of newlyUnlockedApinames) {

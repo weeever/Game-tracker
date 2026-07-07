@@ -42,6 +42,10 @@
 
 /* THEMES */
 [data-theme="emerald"] {
+    --bg-primary: #040d09;
+    --bg-secondary: #081710;
+    --bg-card: rgba(12, 32, 24, 0.65);
+    --bg-card-hover: rgba(18, 46, 35, 0.8);
     --accent-violet: #34d399;
     --accent-violet-hover: #10b981;
     --accent-violet-dim: rgba(52, 211, 153, 0.15);
@@ -50,11 +54,15 @@
     --gradient-primary: linear-gradient(135deg, #10b981, #34d399);
     --gradient-pink: linear-gradient(135deg, #34d399, #00f5ff);
     --shadow-glow: 0 0 20px rgba(52, 211, 153, 0.4);
-    --gradient-bg: radial-gradient(ellipse at 20% 50%, rgba(52, 211, 153, 0.08) 0%, transparent 50%),
-                    radial-gradient(ellipse at 80% 20%, rgba(0, 245, 255, 0.06) 0%, transparent 50%),
-                    radial-gradient(ellipse at 50% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+    --gradient-bg: radial-gradient(ellipse at 20% 50%, rgba(52, 211, 153, 0.12) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 20%, rgba(0, 245, 255, 0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 50% 80%, rgba(16, 185, 129, 0.07) 0%, transparent 50%);
 }
 [data-theme="blue"] {
+    --bg-primary: #030814;
+    --bg-secondary: #071224;
+    --bg-card: rgba(10, 24, 48, 0.65);
+    --bg-card-hover: rgba(16, 36, 72, 0.8);
     --accent-violet: #60a5fa;
     --accent-violet-hover: #3b82f6;
     --accent-violet-dim: rgba(96, 165, 250, 0.15);
@@ -63,11 +71,15 @@
     --gradient-primary: linear-gradient(135deg, #3b82f6, #60a5fa);
     --gradient-pink: linear-gradient(135deg, #60a5fa, #8b5cf6);
     --shadow-glow: 0 0 20px rgba(96, 165, 250, 0.4);
-    --gradient-bg: radial-gradient(ellipse at 20% 50%, rgba(96, 165, 250, 0.08) 0%, transparent 50%),
-                    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
-                    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+    --gradient-bg: radial-gradient(ellipse at 20% 50%, rgba(96, 165, 250, 0.12) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.07) 0%, transparent 50%);
 }
 [data-theme="rose"] {
+    --bg-primary: #0e0509;
+    --bg-secondary: #180812;
+    --bg-card: rgba(36, 12, 28, 0.65);
+    --bg-card-hover: rgba(50, 18, 40, 0.8);
     --accent-violet: #f472b6;
     --accent-violet-hover: #db2777;
     --accent-violet-dim: rgba(244, 114, 182, 0.15);
@@ -76,9 +88,9 @@
     --gradient-primary: linear-gradient(135deg, #db2777, #f472b6);
     --gradient-pink: linear-gradient(135deg, #f472b6, #ff8a65);
     --shadow-glow: 0 0 20px rgba(244, 114, 182, 0.4);
-    --gradient-bg: radial-gradient(ellipse at 20% 50%, rgba(244, 114, 182, 0.08) 0%, transparent 50%),
-                    radial-gradient(ellipse at 80% 20%, rgba(255, 138, 101, 0.06) 0%, transparent 50%),
-                    radial-gradient(ellipse at 50% 80%, rgba(219, 39, 119, 0.05) 0%, transparent 50%);
+    --gradient-bg: radial-gradient(ellipse at 20% 50%, rgba(244, 114, 182, 0.12) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 20%, rgba(255, 138, 101, 0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 50% 80%, rgba(219, 39, 119, 0.07) 0%, transparent 50%);
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
