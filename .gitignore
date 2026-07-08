@@ -35,3 +35,7 @@ $RECYCLE.BIN/
 *.njsproj
 *.sln
 *.sw?
+
+# Agent and Website configurations
+.agents/
+website/

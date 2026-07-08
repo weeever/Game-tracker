@@ -31,11 +31,45 @@ let state = {
     steamApiKey: '',
     steamId: '',
     profile: { xp: 0, level: 1, gold: 0 },
+    activityHistory: {},
     lastVersionSeen: ''
 };
 
 // ---------- Changelogs ----------
 const CHANGELOGS = {
+    '0.0.5': {
+        title: "Quest Log v0.0.5 — Stats & Persistence",
+        date: "8 Juillet 2026",
+        badge: "New Features",
+        items: [
+            {
+                title: "Tableau de Bord de Statistiques",
+                desc: "Cliquez sur vos jetons de profil pour ouvrir une modale interactive. Elle regroupe votre XP cumulé, votre taux de complétion, vos derniers succès débloqués ainsi qu'une grille d'activité sur 12 semaines s'adaptant à vos thèmes.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>`
+            },
+            {
+                title: "Persistance du jeu en cours",
+                desc: "Le dernier jeu lancé reste désormais ancré dans votre section active, évitant de charger un jeu aléatoire au redémarrage de l'ordinateur.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>`
+            },
+            {
+                title: "Expérience audio immersive",
+                desc: "Refonte du synthétiseur de sons avec une cloche cristalline pour les succès (style Steam) et un drop de basse métallique profond pour les montées de niveau (style Fire Force).",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>`
+            }
+        ]
+    },
     '0.0.4': {
         title: "Quest Log v0.0.4 — Polish & Themes",
         date: "7 Juillet 2026",
@@ -207,67 +241,152 @@ let sessionStartSnapshot = null;
 function playSynthSound(type) {
     try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = ctx.currentTime;
+
         if (type === 'achievement') {
-            // High pitch double-ding (double coin arpeggio)
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = 'triangle'; osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
-            osc.start(); osc.stop(ctx.currentTime + 0.25);
+            // 1. Soft atmospheric background whoosh (filtered white noise)
+            const bufferSize = ctx.sampleRate * 0.4;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const noiseFilter = ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(300, now);
+            noiseFilter.frequency.exponentialRampToValueAtTime(1000, now + 0.3);
+            noiseFilter.Q.setValueAtTime(3, now);
+            
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0, now);
+            noiseGain.gain.linearRampToValueAtTime(0.04, now + 0.08);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noise.start(now);
+            
+            // 2. High-end crystalline bell chime (E5, B5, E6, G#6 chords)
+            const freqs = [659.25, 987.77, 1318.51, 1661.22];
+            freqs.forEach((f, idx) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = idx === 0 ? 'sine' : 'triangle';
+                osc.frequency.setValueAtTime(f, now);
+                osc.detune.setValueAtTime(idx * 3, now); // Slight chorus detune
+                
+                gain.gain.setValueAtTime(0, now);
+                const maxGain = idx === 0 ? 0.08 : 0.04;
+                gain.gain.linearRampToValueAtTime(maxGain, now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8 + idx * 0.1);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 1.2);
+            });
+
+        } else if (type === 'levelup') {
+            // 1. Bass Impact Drop (Fire Force style deep pitch dive)
+            const oscBass = ctx.createOscillator();
+            const gainBass = ctx.createGain();
+            oscBass.type = 'triangle';
+            oscBass.frequency.setValueAtTime(240, now);
+            oscBass.frequency.exponentialRampToValueAtTime(45, now + 0.28);
+            
+            gainBass.gain.setValueAtTime(0.25, now);
+            gainBass.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+            
+            oscBass.connect(gainBass);
+            gainBass.connect(ctx.destination);
+            oscBass.start(now);
+            oscBass.stop(now + 0.6);
+
+            // 2. Air compression/implosion whoosh (lowpass resonant noise sweep)
+            const bufferSize = ctx.sampleRate * 0.6;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const lowpass = ctx.createBiquadFilter();
+            lowpass.type = 'lowpass';
+            lowpass.frequency.setValueAtTime(800, now);
+            lowpass.frequency.exponentialRampToValueAtTime(120, now + 0.35);
+            lowpass.Q.setValueAtTime(6, now);
+            
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.18, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            
+            noise.connect(lowpass);
+            lowpass.connect(noiseGain);
+            noiseGain.connect(ctx.destination);
+            noise.start(now);
+            
+            // 3. Ascending bright metallic major scale chords (A Major)
+            const chord = [329.63, 440.00, 554.37, 659.25, 880.00];
+            chord.forEach((f, idx) => {
+                setTimeout(() => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(f, ctx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.8);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 0.9);
+                }, idx * 60);
+            });
+
+        } else if (type === 'connect') {
+            // Elegant tech chime sweep
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(440, now);
+            osc1.frequency.exponentialRampToValueAtTime(659.25, now + 0.18);
+            
+            gain1.gain.setValueAtTime(0, now);
+            gain1.gain.linearRampToValueAtTime(0.1, now + 0.02);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.5);
 
             setTimeout(() => {
                 const osc2 = ctx.createOscillator();
                 const gain2 = ctx.createGain();
-                osc2.connect(gain2); gain2.connect(ctx.destination);
-                osc2.type = 'triangle'; osc2.frequency.setValueAtTime(880, ctx.currentTime); // A5
-                gain2.gain.setValueAtTime(0.08, ctx.currentTime);
-                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-                osc2.start(); osc2.stop(ctx.currentTime + 0.35);
-            }, 80);
-        } else if (type === 'levelup') {
-            // Ascending major arpeggio
-            const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50]; // C Major
-            notes.forEach((freq, idx) => {
-                setTimeout(() => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.connect(gain); gain.connect(ctx.destination);
-                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.06, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-                    osc.start(); osc.stop(ctx.currentTime + 0.4);
-                }, idx * 70);
-            });
-        } else if (type === 'connect') {
-            // Futuristic dual-sine chime
-            const now = ctx.currentTime;
-            const osc1 = ctx.createOscillator();
-            const osc2 = ctx.createOscillator();
-            const gainNode = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(554.37, ctx.currentTime);
+                osc2.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.18);
+                
+                gain2.gain.setValueAtTime(0, ctx.currentTime);
+                gain2.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+                gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+                
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(ctx.currentTime);
+                osc2.stop(ctx.currentTime + 0.5);
+            }, 100);
 
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(523.25, now);
-            osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15);
-
-            osc2.type = 'triangle';
-            osc2.frequency.setValueAtTime(659.25, now);
-            osc2.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
-
-            gainNode.gain.setValueAtTime(0.12, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-
-            osc1.connect(gainNode);
-            osc2.connect(gainNode);
-            gainNode.connect(ctx.destination);
-
-            osc1.start(now);
-            osc2.start(now);
-            osc1.stop(now + 0.8);
-            osc2.stop(now + 0.8);
         } else if (type === 'tick') {
-            const now = ctx.currentTime;
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.connect(gain);
@@ -394,6 +513,7 @@ async function loadState() {
         if (data) {
             state = { ...state, ...data };
         }
+        if (!state.activityHistory) state.activityHistory = {};
 
         // Propagate custom Discord Client ID if saved
         if (state.discordClientId) {
@@ -429,6 +549,7 @@ async function loadState() {
         try {
             const raw = localStorage.getItem(STATE_KEY);
             if (raw) state = { ...state, ...JSON.parse(raw) };
+            if (!state.activityHistory) state.activityHistory = {};
         } catch (e) { console.warn('Failed to load state:', e); }
     }
     applyTheme(state.theme || 'violet');
@@ -500,7 +621,7 @@ const LOCALES = {
         stats: "Statistiques",
         settings: "Paramètres",
         add_game: "Ajouter",
-        app_title: "Quest Log - Beta 0.0.4",
+        app_title: "Quest Log - Beta 0.0.5",
         global_progress: "Progression Globale",
         filter_placeholder: "Filtrer...",
         title_backlog: "Jeux dans le backlog",
@@ -509,6 +630,13 @@ const LOCALES = {
         title_playtime: "Temps de jeu total",
         title_rating: "Note moyenne",
         title_sort: "Trier",
+        stats_title: "Tableau de Bord",
+        stats_subtitle: "Vue d'ensemble de vos accomplissements RPG",
+        stats_total_xp: "XP Cumulé",
+        stats_completion_rate: "Taux de Complétion",
+        stats_activity_title: "Activité des 12 dernières semaines",
+        stats_recent_achievements: "Succès Récents",
+        stats_close_btn: "Fermer",
         sort_newest: "Plus récent",
         sort_oldest: "Plus ancien",
         sort_az: "A → Z",
@@ -674,7 +802,7 @@ const LOCALES = {
         stats: "Statistics",
         settings: "Settings",
         add_game: "Add Game",
-        app_title: "Quest Log - Beta 0.0.4",
+        app_title: "Quest Log - Beta 0.0.5",
         global_progress: "Global Progress",
         filter_placeholder: "Filter list...",
         title_backlog: "Games in backlog",
@@ -683,6 +811,13 @@ const LOCALES = {
         title_playtime: "Total playtime",
         title_rating: "Average rating",
         title_sort: "Sort",
+        stats_title: "Dashboard",
+        stats_subtitle: "Overview of your RPG accomplishments",
+        stats_total_xp: "Total XP",
+        stats_completion_rate: "Completion Rate",
+        stats_activity_title: "Activity in the last 12 weeks",
+        stats_recent_achievements: "Recent Achievements",
+        stats_close_btn: "Close",
         sort_newest: "Newest",
         sort_oldest: "Oldest",
         sort_az: "A → Z",
@@ -1138,6 +1273,119 @@ function updateStats() {
     const statPlaytime = $('#total-playtime-count');
     if (statPlaytime) {
         statPlaytime.textContent = `${totalPlaytimeHours}h`;
+    }
+}
+
+function renderDetailedStats() {
+    // 1. Calculate Total XP
+    let totalXp = state.profile?.xp || 0;
+    const currentLevel = state.profile?.level || 1;
+    for (let i = 1; i < currentLevel; i++) {
+        totalXp += getXpForLevel(i);
+    }
+    const xpEl = $('#stats-total-xp');
+    if (xpEl) xpEl.textContent = `${totalXp.toLocaleString()} XP`;
+
+    // 2. Calculate Completion Rate
+    const totalGames = state.backlog.length + state.completed.length;
+    const completionRate = totalGames > 0 ? Math.round((state.completed.length / totalGames) * 100) : 0;
+    const rateEl = $('#stats-completion-rate');
+    if (rateEl) rateEl.textContent = `${completionRate}%`;
+
+    // 3. Generate 12-week Activity Heatmap Grid (84 cells)
+    const container = $('#stats-heatmap-container');
+    if (container) {
+        container.innerHTML = '';
+        const grid = document.createElement('div');
+        grid.className = 'stats-heatmap-grid';
+
+        const now = new Date();
+        const dates = [];
+        // Generate 84 days (12 weeks)
+        for (let i = 83; i >= 0; i--) {
+            const d = new Date(now);
+            d.setDate(now.getDate() - i);
+            dates.push(d);
+        }
+
+        dates.forEach(d => {
+            const key = d.toISOString().split('T')[0];
+            const minutes = (state.activityHistory && state.activityHistory[key]) || 0;
+
+            let level = "0";
+            if (minutes > 0 && minutes <= 15) level = "1";
+            else if (minutes > 15 && minutes <= 30) level = "2";
+            else if (minutes > 30 && minutes <= 60) level = "3";
+            else if (minutes > 60) level = "4";
+
+            const cell = document.createElement('div');
+            cell.className = 'heatmap-cell';
+            cell.setAttribute('data-level', level);
+
+            // Localization
+            const dateStr = d.toLocaleDateString(state.language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' });
+            const minutesText = minutes > 0 ? `${minutes} min` : (state.language === 'en' ? 'No playtime' : 'Pas de jeu');
+            cell.title = `${dateStr} : ${minutesText}`;
+
+            grid.appendChild(cell);
+        });
+        container.appendChild(grid);
+    }
+
+    // 4. Render 3 Recent Achievements
+    const listEl = $('#stats-recent-ach-list');
+    if (listEl) {
+        listEl.innerHTML = '';
+        const recentAchs = [];
+        const allGames = [...state.backlog, ...state.completed];
+        allGames.forEach(game => {
+            if (game.achievements) {
+                game.achievements.forEach(ach => {
+                    if (ach.unlocked) {
+                        recentAchs.push({
+                            ...ach,
+                            gameName: game.name
+                        });
+                    }
+                });
+            }
+        });
+
+        recentAchs.sort((a, b) => (b.unlockTime || 0) - (a.unlockTime || 0));
+        const slice = recentAchs.slice(0, 3);
+
+        if (slice.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.fontSize = '0.82rem';
+            emptyMsg.style.color = 'var(--text-tertiary)';
+            emptyMsg.style.textAlign = 'center';
+            emptyMsg.style.padding = '14px 0';
+            emptyMsg.textContent = state.language === 'en' ? "No achievements unlocked yet" : "Aucun succès débloqué pour le moment";
+            listEl.appendChild(emptyMsg);
+        } else {
+            slice.forEach(ach => {
+                const item = document.createElement('div');
+                item.className = 'recap-ach-item';
+
+                const iconHtml = ach.icon
+                    ? `<img src="${ach.icon}" style="width: 32px; height: 32px; border-radius: 4px;" alt="Icon">`
+                    : `<div style="width: 32px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.03);"><svg style="width: 16px; height: 16px; color: var(--text-secondary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>`;
+
+                const dateStr = ach.unlockTime ? new Date(ach.unlockTime * 1000).toLocaleDateString(state.language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+
+                item.innerHTML = `
+                    ${iconHtml}
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 0.85rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ach.name}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ach.gameName}</div>
+                    </div>
+                    <div style="font-size: 0.72rem; color: var(--accent-pink); font-weight: 600;">
+                        ${dateStr}
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
     }
 }
 
@@ -2061,6 +2309,12 @@ async function startPlaySession(game, isAutoDetect = false) {
         timerInterval: setInterval(() => {
             game.playtime = (game.playtime || 0) + 1;
             addGold(1); // 1 gold per minute
+            
+            // Record contribution/activity history
+            const today = new Date().toISOString().split('T')[0];
+            if (!state.activityHistory) state.activityHistory = {};
+            state.activityHistory[today] = (state.activityHistory[today] || 0) + 1;
+
             checkSimulatedAchievements(game);
             saveState();
 
@@ -2133,7 +2387,7 @@ async function stopPlaySession() {
     }
 
     activePlaySession = null;
-    state.currentGameId = null;
+    // Retain the last played game in the Now Playing area instead of clearing it
     await saveState();
     renderAll();
 
@@ -3515,6 +3769,18 @@ function initEvents() {
     $('#btn-close-changelog')?.addEventListener('click', () => {
         closeModal($('#changelog-overlay'));
     });
+
+    // Stats Dashboard Trigger events
+    const openStats = () => {
+        renderDetailedStats();
+        openModal($('#stats-overlay'));
+    };
+    $('#stat-backlog')?.addEventListener('click', openStats);
+    $('#stat-completed')?.addEventListener('click', openStats);
+    $('#stat-total-playtime')?.addEventListener('click', openStats);
+    $('#stat-avg-rating')?.addEventListener('click', openStats);
+    $('#profile-level')?.addEventListener('click', openStats);
+    $('#btn-close-stats')?.addEventListener('click', () => closeModal($('#stats-overlay')));
 }
 
 // ---------- Particles ----------
@@ -3667,16 +3933,10 @@ async function checkAndShowChangelog() {
                     listEl.innerHTML = '';
                     logData.items.forEach(item => {
                         const itemEl = document.createElement('div');
-                        itemEl.style.display = 'flex';
-                        itemEl.style.gap = '14px';
-                        itemEl.style.alignItems = 'flex-start';
-                        itemEl.style.background = 'rgba(255, 255, 255, 0.02)';
-                        itemEl.style.border = '1px solid var(--bg-glass-border)';
-                        itemEl.style.borderRadius = 'var(--radius-md)';
-                        itemEl.style.padding = '12px';
+                        itemEl.className = 'changelog-card-item';
 
                         itemEl.innerHTML = `
-                            <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; background: rgba(244, 114, 182, 0.1); border: 1px solid rgba(244, 114, 182, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent-pink);">
+                            <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; background: var(--accent-violet-dim); border: 1px solid rgba(167, 139, 250, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent-violet);">
                                 ${item.icon}
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 4px; text-align: left;">
