@@ -31,16 +31,16 @@
         <div id="levelup-overlay" class="levelup-overlay hidden">
             <div class="levelup-glow"></div>
             <div class="levelup-content">
-                <div class="levelup-stars">
-                    <svg class="star-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    <svg class="star-svg center" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    <svg class="star-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <div class="levelup-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="18 15 12 9 6 15"/>
+                    </svg>
                 </div>
-                <div class="levelup-header">MONTEE DE NIVEAU</div>
+                <div class="levelup-header">LEVEL UP</div>
                 <div class="levelup-badge">
                     <span id="levelup-number">1</span>
                 </div>
-                <div class="levelup-footer">AVENTURE ACTIVE • QUEST LOG</div>
+                <div class="levelup-footer">QUEST LOG</div>
             </div>
         </div>
 
@@ -167,8 +167,8 @@
                 levelupOverlay.className = 'levelup-overlay fade-out';
                 setTimeout(() => {
                     levelupOverlay.className = 'levelup-overlay hidden';
-                }, 800);
-            }, 4000);
+                }, 600);
+            }, 3000);
         });
 
         // Handle show game completed

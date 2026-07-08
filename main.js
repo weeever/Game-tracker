@@ -10,6 +10,7 @@ const fs = require('fs');
 const https = require('https');
 const crypto = require('crypto');
 const RPC = require('discord-rpc');
+const { exec } = require('child_process');
 
 // Set Application User Model ID for native Windows Notifications
 app.setAppUserModelId('com.questlog.app');
@@ -465,59 +466,206 @@ ipcMain.handle('search-steam-appid', async (event, term) => {
 const DEFAULT_STEAM_API_KEY = 'D52FE235AB0867B9882020110105618C';
 
 ipcMain.handle('resolve-steam-id', async (event, profileInput) => {
-    return new Promise((resolve) => {
-        let url = profileInput.trim();
-        if (!url) return resolve({ success: false, error: 'Entrée vide.' });
+    const key = DEFAULT_STEAM_API_KEY;
 
-        // If it's just a pseudo/custom URL, build the community URL
-        if (!url.includes('steamcommunity.com')) {
-            // Check if it's already a 17-digit SteamID64
-            if (/^\d{17}$/.test(url)) {
-                return resolve({ success: true, steamId: url });
+    /**
+     * Extracts a vanity name from various input formats:
+     *   - Plain username: "weeever"
+     *   - Full URL: "https://steamcommunity.com/id/weeever/"
+     *   - URL without protocol: "steamcommunity.com/id/weeever"
+     */
+    function extractVanityName(input) {
+        const urlMatch = input.match(/steamcommunity\.com\/id\/([^\/\?\#]+)/i);
+        if (urlMatch) return urlMatch[1];
+        // If it doesn't look like a URL or SteamID64, treat as plain vanity name
+        if (!input.includes('/') && !input.includes('.') && !/^\d{17}$/.test(input)) {
+            return input;
+        }
+        return null;
+    }
+
+    /**
+     * Fallback: scrape the Steam Community HTML page to extract SteamID64.
+     * This is the old resolution method kept as a last resort.
+     */
+    function fallbackHtmlScrape(profileUrl) {
+        return new Promise((resolve) => {
+            let url = profileUrl;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
             }
-            url = `https://steamcommunity.com/id/${url}/`;
-        }
+            if (!url.endsWith('/')) url += '/';
 
-        // Ensure protocol
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            url = 'https://' + url;
-        }
+            const handleResponse = (res) => {
+                if (res.statusCode === 302 && res.headers.location) {
+                    https.get(res.headers.location, { headers: { 'User-Agent': 'Mozilla/5.0' } }, handleResponse)
+                        .on('error', (e) => resolve({ success: false, error: e.message }));
+                    return;
+                }
 
-        // Add trailing slash if missing
-        if (!url.endsWith('/')) {
-            url += '/';
-        }
-
-        const handleResponse = (res) => {
-            if (res.statusCode === 302 && res.headers.location) {
-                https.get(res.headers.location, { headers: { 'User-Agent': 'Mozilla/5.0' } }, handleResponse)
-                    .on('error', (e) => resolve({ success: false, error: e.message }));
-                return;
-            }
-
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                const match = data.match(/"steamid"\s*:\s*"(\d+)"/);
-                if (match) {
-                    resolve({ success: true, steamId: match[1] });
-                } else {
-                    // Try searching for any 17-digit SteamID structure
-                    const match2 = data.match(/7656119\d{10}/);
-                    if (match2) {
-                        resolve({ success: true, steamId: match2[0] });
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    const match = data.match(/"steamid"\s*:\s*"(\d+)"/);
+                    if (match) {
+                        resolve({ success: true, steamId: match[1] });
                     } else {
-                        resolve({ success: false, error: 'Impossible de trouver ton SteamID. Vérifie que ton profil est public.' });
+                        const match2 = data.match(/7656119\d{10}/);
+                        if (match2) {
+                            resolve({ success: true, steamId: match2[0] });
+                        } else {
+                            resolve({ success: false, error: 'Impossible de trouver ton SteamID. Vérifie que ton profil est public.' });
+                        }
+                    }
+                });
+            };
+
+            https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, handleResponse)
+                .on('error', (e) => resolve({ success: false, error: e.message }));
+        });
+    }
+
+    try {
+        const input = profileInput.trim();
+        if (!input) return { success: false, error: 'Entrée vide.' };
+
+        // If it's already a 17-digit SteamID64, return directly
+        if (/^\d{17}$/.test(input)) {
+            return { success: true, steamId: input };
+        }
+
+        const vanityName = extractVanityName(input);
+
+        // Primary method: use the official ResolveVanityURL API
+        if (vanityName) {
+            const apiResult = await new Promise((resolve) => {
+                const apiUrl = `https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=${key}&vanityurl=${encodeURIComponent(vanityName)}`;
+                https.get(apiUrl, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => {
+                        try {
+                            const json = JSON.parse(data);
+                            if (json.response && json.response.success === 1 && json.response.steamid) {
+                                resolve({ success: true, steamId: json.response.steamid });
+                            } else {
+                                resolve(null); // API didn't resolve — will fall back
+                            }
+                        } catch {
+                            resolve(null);
+                        }
+                    });
+                }).on('error', () => resolve(null));
+            });
+
+            if (apiResult) return apiResult;
+        }
+
+        // Fallback: scrape Steam Community HTML page
+        const communityUrl = vanityName
+            ? `https://steamcommunity.com/id/${vanityName}/`
+            : (input.includes('steamcommunity.com') ? input : `https://steamcommunity.com/id/${input}/`);
+        return await fallbackHtmlScrape(communityUrl);
+
+    } catch (err) {
+        return { success: false, error: err.message || 'Erreur inconnue lors de la résolution du SteamID.' };
+    }
+});
+
+// Fetch Steam profile info (avatar, persona name, profile URL) via GetPlayerSummaries API
+ipcMain.handle('fetch-steam-profile', async (event, steamId) => {
+    const key = DEFAULT_STEAM_API_KEY;
+    try {
+        const result = await new Promise((resolve, reject) => {
+            const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${key}&steamids=${steamId}`;
+            https.get(url, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const json = JSON.parse(data);
+                        const player = json.response && json.response.players && json.response.players[0];
+                        if (player) {
+                            resolve({
+                                success: true,
+                                personaname: player.personaname,
+                                avatarfull: player.avatarfull,
+                                profileurl: player.profileurl
+                            });
+                        } else {
+                            resolve({ success: false, error: 'Profil Steam introuvable.' });
+                        }
+                    } catch (e) {
+                        resolve({ success: false, error: 'Réponse API invalide.' });
+                    }
+                });
+            }).on('error', (e) => resolve({ success: false, error: e.message }));
+        });
+        return result;
+    } catch (err) {
+        return { success: false, error: err.message || 'Erreur inconnue.' };
+    }
+});
+
+function getSteamInstallPath() {
+    return new Promise((resolve) => {
+        // Default paths first
+        const defaults = [
+            'C:\\Program Files (x86)\\Steam',
+            'C:\\Program Files\\Steam'
+        ];
+        for (const p of defaults) {
+            if (fs.existsSync(p)) return resolve(p);
+        }
+
+        // Try reading from registry
+        exec('reg query "HKCU\\Software\\Valve\\Steam" /v "SteamPath"', (err, stdout) => {
+            if (err) return resolve(null);
+            const match = stdout.match(/SteamPath\s+REG_SZ\s+(.+)/);
+            if (match) {
+                const p = match[1].trim().replace(/\//g, '\\');
+                if (fs.existsSync(p)) return resolve(p);
+            }
+            resolve(null);
+        });
+    });
+}
+
+// Detect locally installed Steam profiles from loginusers.vdf
+ipcMain.handle('detect-local-steam-id', async () => {
+    try {
+        const steamPath = await getSteamInstallPath();
+        if (!steamPath) return { success: false, error: 'Dossier Steam introuvable.' };
+
+        const loginUsersPath = path.join(steamPath, 'config', 'loginusers.vdf');
+        if (!fs.existsSync(loginUsersPath)) {
+            return { success: false, error: 'Fichier loginusers.vdf introuvable.' };
+        }
+
+        const content = fs.readFileSync(loginUsersPath, 'utf-8');
+        
+        // Find most recent user
+        const userBlocks = content.match(/"7656119\d{10}"\s*\{[^}]+\}/g);
+        if (userBlocks) {
+            for (const block of userBlocks) {
+                if (block.includes('"MostRecent"') && block.includes('"1"')) {
+                    const idMatch = block.match(/"(7656119\d{10})"/);
+                    if (idMatch) {
+                        return { success: true, steamId: idMatch[1] };
                     }
                 }
-            });
-        };
-
-        https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, handleResponse)
-            .on('error', (e) => {
-                resolve({ success: false, error: e.message });
-            });
-    });
+            }
+            // Fallback: first ID found
+            const firstIdMatch = content.match(/"(7656119\d{10})"/);
+            if (firstIdMatch) {
+                return { success: true, steamId: firstIdMatch[1] };
+            }
+        }
+        
+        return { success: false, error: 'Aucun utilisateur Steam détecté.' };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
 });
 
 ipcMain.handle('fetch-steam-achievements', async (event, apiKey, steamId, appId) => {
@@ -1169,18 +1317,35 @@ function parseIniFile(content) {
     return result;
 }
 
-// Scans RUNE, CODEX, Goldberg and local directories for unlocked achievements
-async function scanAllLocalAchievements(appId) {
-    const unlocked = [];
-    if (!appId) return unlocked;
-    const appIdStr = appId.toString();
+function parseIniAchievements(parsed, unlocked) {
+    if (!parsed) return;
+    for (const section of Object.keys(parsed)) {
+        const cleanSec = section.toLowerCase();
+        // Format 1: A list of achievements under a section like [SteamAchievements]
+        if (cleanSec.includes('achievement') || cleanSec.includes('unlocked') || cleanSec.includes('stats')) {
+            const keys = parsed[section];
+            for (const key of Object.keys(keys)) {
+                const val = keys[key];
+                if (val === '1' || val === 'true' || val === 1 || val === true) {
+                    unlocked.push(key.toLowerCase());
+                }
+            }
+        } else {
+            // Format 2: Each achievement is its own section [NEW_ACHIEVEMENT_1_0]
+            const val = parsed[section];
+            if (val && (val.Achieved === '1' || val.Achieved === 'true' || val.earned === '1' || val.earned === 'true' || val.unlocked === '1' || val.unlocked === 'true')) {
+                unlocked.push(section.toLowerCase());
+            }
+        }
+    }
+}
 
-    // 1. Goldberg Roaming Path
-    try {
-        const appDataPath = process.env.APPDATA || path.join(process.env.USERPROFILE, 'AppData', 'Roaming');
-        const goldbergPath = path.join(appDataPath, 'Goldberg Steamemu Saves', appIdStr, 'achievements.json');
-        if (fs.existsSync(goldbergPath)) {
-            const raw = fs.readFileSync(goldbergPath, 'utf-8');
+function scanGameDirForAchievements(gameDir, appIdStr, unlocked) {
+    if (!gameDir || !fs.existsSync(gameDir)) return;
+
+    const parseGoldbergJson = (filePath) => {
+        try {
+            const raw = fs.readFileSync(filePath, 'utf-8');
             const data = JSON.parse(raw);
             if (Array.isArray(data)) {
                 unlocked.push(...data.map(x => x.toLowerCase()));
@@ -1189,6 +1354,116 @@ async function scanAllLocalAchievements(appId) {
                     const val = data[key];
                     if (val === 1 || (val && (val.earned === 1 || val.earned === true))) {
                         unlocked.push(key.toLowerCase());
+                    }
+                }
+            }
+        } catch (e) { }
+    };
+
+    const parseLocalIni = (filePath) => {
+        try {
+            const raw = fs.readFileSync(filePath, 'utf-8');
+            const parsed = parseIniFile(raw);
+            parseIniAchievements(parsed, unlocked);
+        } catch (e) { }
+    };
+
+    // Check common paths under game directory (immediate and 1 level deep)
+    const candidates = [
+        path.join(gameDir, 'achievements.json'),
+        path.join(gameDir, 'achievements.ini'),
+        path.join(gameDir, 'steam_settings', 'achievements.json'),
+        path.join(gameDir, 'steam_settings', 'achievements.ini'),
+        path.join(gameDir, 'local_save', 'achievements.json'),
+        path.join(gameDir, 'local_save', 'achievements.ini'),
+        path.join(gameDir, 'settings', 'achievements.json'),
+        path.join(gameDir, 'settings', 'achievements.ini'),
+        path.join(gameDir, 'save', appIdStr, 'achievements.ini'),
+        path.join(gameDir, 'save', 'achievements.ini')
+    ];
+
+    for (const file of candidates) {
+        if (fs.existsSync(file)) {
+            if (file.endsWith('.json')) {
+                parseGoldbergJson(file);
+            } else if (file.endsWith('.ini')) {
+                parseLocalIni(file);
+            }
+        }
+    }
+
+    // Try scanning folders 1-level deep
+    try {
+        const items = fs.readdirSync(gameDir);
+        for (const item of items) {
+            const fullPath = path.join(gameDir, item);
+            if (fs.statSync(fullPath).isDirectory()) {
+                const subFiles = [
+                    path.join(fullPath, 'achievements.json'),
+                    path.join(fullPath, 'achievements.ini'),
+                    path.join(fullPath, 'steam_settings', 'achievements.json'),
+                    path.join(fullPath, 'steam_settings', 'achievements.ini')
+                ];
+                for (const file of subFiles) {
+                    if (fs.existsSync(file)) {
+                        if (file.endsWith('.json')) {
+                            parseGoldbergJson(file);
+                        } else if (file.endsWith('.ini')) {
+                            parseLocalIni(file);
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) { }
+}
+
+// Scans RUNE, CODEX, Goldberg and local directories for unlocked achievements
+async function scanAllLocalAchievements(appId, exePath) {
+    const unlocked = [];
+    if (!appId) return unlocked;
+    const appIdStr = appId.toString();
+
+    // 1. Goldberg Roaming Path (Dynamic SteamID matching)
+    try {
+        const appDataPath = process.env.APPDATA || path.join(process.env.USERPROFILE, 'AppData', 'Roaming');
+        const goldbergBase = path.join(appDataPath, 'Goldberg Steamemu Saves');
+        if (fs.existsSync(goldbergBase)) {
+            const subdirs = fs.readdirSync(goldbergBase);
+            for (const subdir of subdirs) {
+                const fullSubdirPath = path.join(goldbergBase, subdir);
+                if (fs.statSync(fullSubdirPath).isDirectory()) {
+                    const achPath = path.join(fullSubdirPath, appIdStr, 'achievements.json');
+                    if (fs.existsSync(achPath)) {
+                        const raw = fs.readFileSync(achPath, 'utf-8');
+                        const data = JSON.parse(raw);
+                        if (Array.isArray(data)) {
+                            unlocked.push(...data.map(x => x.toLowerCase()));
+                        } else if (typeof data === 'object') {
+                            for (const key of Object.keys(data)) {
+                                const val = data[key];
+                                if (val === 1 || (val && (val.earned === 1 || val.earned === true))) {
+                                    unlocked.push(key.toLowerCase());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Direct path fallback
+            const directPath = path.join(goldbergBase, appIdStr, 'achievements.json');
+            if (fs.existsSync(directPath)) {
+                const raw = fs.readFileSync(directPath, 'utf-8');
+                const data = JSON.parse(raw);
+                if (Array.isArray(data)) {
+                    unlocked.push(...data.map(x => x.toLowerCase()));
+                } else if (typeof data === 'object') {
+                    for (const key of Object.keys(data)) {
+                        const val = data[key];
+                        if (val === 1 || (val && (val.earned === 1 || val.earned === true))) {
+                            unlocked.push(key.toLowerCase());
+                        }
                     }
                 }
             }
@@ -1201,13 +1476,17 @@ async function scanAllLocalAchievements(appId) {
         if (fs.existsSync(runePath)) {
             const raw = fs.readFileSync(runePath, 'utf-8');
             const parsed = parseIniFile(raw);
-            for (const section of Object.keys(parsed)) {
-                if (section === 'SteamAchievements') continue;
-                const val = parsed[section];
-                if (val && (val.Achieved === '1' || val.Achieved === 'true')) {
-                    unlocked.push(section.toLowerCase());
-                }
-            }
+            parseIniAchievements(parsed, unlocked);
+        }
+    } catch (e) { }
+
+    // 2b. RUNE User Documents Path
+    try {
+        const userDocsPath = path.join(process.env.USERPROFILE, 'Documents', 'Steam', 'RUNE', appIdStr, 'achievements.ini');
+        if (fs.existsSync(userDocsPath)) {
+            const raw = fs.readFileSync(userDocsPath, 'utf-8');
+            const parsed = parseIniFile(raw);
+            parseIniAchievements(parsed, unlocked);
         }
     } catch (e) { }
 
@@ -1217,15 +1496,43 @@ async function scanAllLocalAchievements(appId) {
         if (fs.existsSync(codexPath)) {
             const raw = fs.readFileSync(codexPath, 'utf-8');
             const parsed = parseIniFile(raw);
-            for (const section of Object.keys(parsed)) {
-                if (section === 'SteamAchievements') continue;
-                const val = parsed[section];
-                if (val && (val.Achieved === '1' || val.Achieved === 'true')) {
-                    unlocked.push(section.toLowerCase());
-                }
+            parseIniAchievements(parsed, unlocked);
+        }
+    } catch (e) { }
+
+    // 3b. CODEX / PLAZA User Documents Path
+    try {
+        const userDocsPath = path.join(process.env.USERPROFILE, 'Documents', 'Steam', 'CODEX', appIdStr, 'achievements.ini');
+        if (fs.existsSync(userDocsPath)) {
+            const raw = fs.readFileSync(userDocsPath, 'utf-8');
+            const parsed = parseIniFile(raw);
+            parseIniAchievements(parsed, unlocked);
+        }
+    } catch (e) { }
+
+    // 3c. Tenoke Public, User & AppData Paths
+    try {
+        const paths = [
+            path.join('C:\\Users\\Public\\Documents\\Steam\\Tenoke', appIdStr, 'achievements.ini'),
+            path.join(process.env.USERPROFILE, 'Documents', 'Steam', 'Tenoke', appIdStr, 'achievements.ini'),
+            path.join(process.env.APPDATA, 'Tenoke', appIdStr, 'achievements.ini')
+        ];
+        for (const p of paths) {
+            if (fs.existsSync(p)) {
+                const raw = fs.readFileSync(p, 'utf-8');
+                const parsed = parseIniFile(raw);
+                parseIniAchievements(parsed, unlocked);
             }
         }
     } catch (e) { }
+
+    // 4. Scan the Game directory itself
+    if (exePath) {
+        try {
+            const gameDir = path.dirname(exePath);
+            scanGameDirForAchievements(gameDir, appIdStr, unlocked);
+        } catch (e) { }
+    }
 
     return Array.from(new Set(unlocked));
 }
@@ -1299,16 +1606,16 @@ ipcMain.handle('show-overlay-gamecompleted', (event, gameName, achievementName) 
     return { success: true };
 });
 
-ipcMain.handle('check-local-achievements', async (event, appId) => {
+ipcMain.handle('check-local-achievements', async (event, appId, exePath) => {
     try {
-        const list = await scanAllLocalAchievements(appId);
+        const list = await scanAllLocalAchievements(appId, exePath);
         return { success: true, achievements: list };
     } catch (e) {
         return { success: false, error: e.message };
     }
 });
 
-ipcMain.handle('watch-local-achievements', (event, appId) => {
+ipcMain.handle('watch-local-achievements', (event, appId, exePath) => {
     if (achievementsWatchInterval) clearInterval(achievementsWatchInterval);
 
     lastUnlockedCount = -1;
@@ -1316,7 +1623,7 @@ ipcMain.handle('watch-local-achievements', (event, appId) => {
 
     achievementsWatchInterval = setInterval(async () => {
         try {
-            const currentUnlocked = await scanAllLocalAchievements(appId);
+            const currentUnlocked = await scanAllLocalAchievements(appId, exePath);
 
             if (lastUnlockedCount === -1) {
                 lastUnlockedCount = currentUnlocked.length;

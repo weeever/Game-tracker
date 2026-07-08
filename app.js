@@ -32,11 +32,56 @@ let state = {
     steamId: '',
     profile: { xp: 0, level: 1, gold: 0 },
     activityHistory: {},
-    lastVersionSeen: ''
+    lastVersionSeen: '',
+    dailyBoost: null
 };
 
 // ---------- Changelogs ----------
 const CHANGELOGS = {
+    '0.0.6': {
+        title: "Quest Log v0.0.6 — Tableau de Bord & Intégration RPG",
+        date: "8 Juillet 2026",
+        badge: "Giga Update",
+        items: [
+            {
+                title: "Enrichissement du Tableau de Bord",
+                desc: "Profitez d'un layout premium double-colonne sans défilement. Intègre désormais votre Niveau, votre Temps de Jeu global, votre Complétion et vos Succès dans une grille 2x2 harmonieuse, avec un outil de classification de Classe d'Aventurier (Mage, Guerrier, Assassin...) basé sur vos genres favoris.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="9" y1="3" x2="9" y2="21"/>
+                    <line x1="15" y1="3" x2="15" y2="21"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="3" y1="15" x2="21" y2="15"/>
+                </svg>`
+            },
+            {
+                title: "Suivi Interactif & Tooltips GitHub",
+                desc: "Survolez la grille d'activité sur 12 semaines pour voir instantanément vos statistiques quotidiennes via un tooltip personnalisé en verre dépoli (sans latence).",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>`
+            },
+            {
+                title: "Top 3 des Jeux les Plus Joués",
+                desc: "Affiche vos 3 jeux favoris avec des barres de progression proportionnelles, des jaquettes miniatures et des indicateurs de rang épurés.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>`
+            },
+            {
+                title: "Liaison Steam AppID & Sécurisation XP",
+                desc: "Modifiez l'AppID de vos jeux directement depuis leur fiche de détails. Sécurisation anti-doublon d'XP (flag xpAwarded) empêchant de regagner de l'XP en consultant un jeu synchronisé.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>`
+            }
+        ]
+    },
     '0.0.5': {
         title: "Quest Log v0.0.5 — Stats & Persistence",
         date: "8 Juillet 2026",
@@ -562,6 +607,88 @@ async function loadState() {
     applyLanguage(state.language);
 }
 
+async function computeDailyBoost() {
+    if (!state.backlog || state.backlog.length === 0) {
+        state.dailyBoost = null;
+        return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Check if daily boost is already computed for today and is valid
+    if (state.dailyBoost && state.dailyBoost.date === today && Array.isArray(state.dailyBoost.gameIds) && state.dailyBoost.gameIds.length > 0) {
+        // Verify all gameIds still exist in the backlog
+        const allExist = state.dailyBoost.gameIds.every(id => state.backlog.some(g => g.id === id));
+        if (allExist) return;
+    }
+
+    const now = Date.now();
+    const previousGameIds = (state.dailyBoost && Array.isArray(state.dailyBoost.gameIds)) ? state.dailyBoost.gameIds : [];
+    
+    // We only exclude previous games if there are enough games in the backlog to choose from
+    const canExcludePrevious = state.backlog.length > previousGameIds.length;
+    const isExcluded = (gameId) => canExcludePrevious && previousGameIds.includes(gameId);
+
+    const candidateHigh = [];
+    const candidateMedium = [];
+    const candidateRandom = [];
+
+    state.backlog.forEach(game => {
+        if (isExcluded(game.id)) return;
+
+        const playtimeMin = game.playtime || 0;
+        const totalAchs = game.achievements ? game.achievements.length : 0;
+        const unlockedAchs = game.achievements ? game.achievements.filter(a => a.unlocked).length : 0;
+        const achRatio = totalAchs > 0 ? unlockedAchs / totalAchs : 0;
+        const lastPlayedTime = game.lastPlayed || 0;
+
+        // 1. Haute Priorité (70% de chance) : Joué plus de 30 minutes, a des succès, non joué depuis plus de 3 jours
+        const notPlayedRecently = lastPlayedTime === 0 || (now - lastPlayedTime > 3 * 24 * 3600 * 1000);
+        if (playtimeMin > 30 && totalAchs > 0 && notPlayedRecently) {
+            candidateHigh.push(game);
+        }
+
+        // 2. Moyenne Priorité (20% de chance) : Plus de 1h de jeu, mais moins de 50% de succès
+        if (playtimeMin > 60 && totalAchs > 0 && achRatio < 0.5) {
+            candidateMedium.push(game);
+        }
+
+        candidateRandom.push(game);
+    });
+
+    // Fallback if everything got excluded
+    if (candidateRandom.length === 0) {
+        candidateRandom.push(...state.backlog);
+    }
+
+    let selectedCategory = [];
+    const rand = Math.random();
+
+    if (rand < 0.7 && candidateHigh.length > 0) {
+        selectedCategory = candidateHigh;
+    } else if (rand < 0.9 && candidateMedium.length > 0) {
+        selectedCategory = candidateMedium;
+    } else {
+        selectedCategory = candidateRandom;
+    }
+
+    if (selectedCategory.length === 0) {
+        selectedCategory = candidateRandom;
+    }
+
+    const shuffled = [...selectedCategory].sort(() => 0.5 - Math.random());
+    const count = Math.min(shuffled.length, Math.random() < 0.5 ? 1 : 2);
+    const selectedGames = shuffled.slice(0, count);
+
+    state.dailyBoost = {
+        date: today,
+        gameIds: selectedGames.map(g => g.id),
+        previousGameIds: previousGameIds // Keep history for stability
+    };
+
+    await saveState();
+}
+
 const LOCALES = {
     fr: {
         btn_add: "Ajouter",
@@ -621,7 +748,7 @@ const LOCALES = {
         stats: "Statistiques",
         settings: "Paramètres",
         add_game: "Ajouter",
-        app_title: "Quest Log - Beta 0.0.5",
+        app_title: "Quest Log - Beta 0.0.6",
         global_progress: "Progression Globale",
         filter_placeholder: "Filtrer...",
         title_backlog: "Jeux dans le backlog",
@@ -802,7 +929,7 @@ const LOCALES = {
         stats: "Statistics",
         settings: "Settings",
         add_game: "Add Game",
-        app_title: "Quest Log - Beta 0.0.5",
+        app_title: "Quest Log - Beta 0.0.6",
         global_progress: "Global Progress",
         filter_placeholder: "Filter list...",
         title_backlog: "Games in backlog",
@@ -1077,7 +1204,8 @@ const $$ = (sel) => document.querySelectorAll(sel);
 // ---------- Rendering ----------
 function renderGameCard(game, isCompleted = false, isNew = false) {
     const card = document.createElement('div');
-    card.className = `game-card${isCompleted ? ' completed-card' : ''}${game.id === state.currentGameId ? ' active-game' : ''}${game.isFavorite ? ' favorite-card' : ''}`;
+    const isBoosted = !isCompleted && state.dailyBoost && state.dailyBoost.gameIds && state.dailyBoost.gameIds.includes(game.id);
+    card.className = `game-card${isCompleted ? ' completed-card' : ''}${game.id === state.currentGameId ? ' active-game' : ''}${game.isFavorite ? ' favorite-card' : ''}${isBoosted ? ' boosted-card' : ''}`;
     if (isNew) card.classList.add('new-item');
     card.dataset.id = game.id;
     card.setAttribute('role', 'listitem');
@@ -1091,11 +1219,19 @@ function renderGameCard(game, isCompleted = false, isNew = false) {
 
     const icon = GENRE_ICONS[game.genre] || `<svg class="stat-svg" style="width:24px; height:24px;" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="3"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/></svg>`;
 
+    const boostBadgeHtml = isBoosted ? `
+        <div class="daily-boost-badge" title="Boost Actif : XP ×1.5 • Or ×2 !">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="boost-icon" style="width: 10px; height: 10px;">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <span>BOOST</span>
+        </div>` : '';
+
     let visualHtml = '';
     if (game.cover) {
-        visualHtml = `<div class="game-card-cover" style="background-image:url('${game.cover}')"></div>`;
+        visualHtml = `<div class="game-card-cover" style="background-image:url('${game.cover}')">${boostBadgeHtml}</div>`;
     } else {
-        visualHtml = `<div class="game-card-icon genre-${game.genre}" style="display:flex; align-items:center; justify-content:center;">${icon}</div>`;
+        visualHtml = `<div class="game-card-icon genre-${game.genre}" style="display:flex; align-items:center; justify-content:center; position:relative;">${icon}${boostBadgeHtml}</div>`;
     }
 
     let actionsHtml = '';
@@ -1277,23 +1413,118 @@ function updateStats() {
 }
 
 function renderDetailedStats() {
-    // 1. Calculate Total XP
+    const allGames = [...state.backlog, ...state.completed];
+
+    // 1. Calculate XP, Level and RPG Class
     let totalXp = state.profile?.xp || 0;
     const currentLevel = state.profile?.level || 1;
     for (let i = 1; i < currentLevel; i++) {
         totalXp += getXpForLevel(i);
     }
-    const xpEl = $('#stats-total-xp');
-    if (xpEl) xpEl.textContent = `${totalXp.toLocaleString()} XP`;
+    
+    const levelVal = $('#stats-level-val');
+    if (levelVal) levelVal.textContent = `Niveau ${currentLevel}`;
+    const xpSub = $('#stats-xp-subtext');
+    if (xpSub) xpSub.textContent = `${totalXp.toLocaleString()} XP au total`;
 
-    // 2. Calculate Completion Rate
-    const totalGames = state.backlog.length + state.completed.length;
+    // Calculate dynamic RPG Class based on genre playtime
+    const genrePlaytimes = {};
+    allGames.forEach(g => {
+        if (g.genre && g.playtime) {
+            const cleanGenre = g.genre.toLowerCase().trim();
+            genrePlaytimes[cleanGenre] = (genrePlaytimes[cleanGenre] || 0) + g.playtime;
+        }
+    });
+
+    let dominantGenre = '';
+    let maxGenrePlaytime = 0;
+    for (const genre in genrePlaytimes) {
+        if (genrePlaytimes[genre] > maxGenrePlaytime) {
+            maxGenrePlaytime = genrePlaytimes[genre];
+            dominantGenre = genre;
+        }
+    }
+
+    let rpgClass = state.language === 'en' ? 'Novice' : 'Novice';
+    if (maxGenrePlaytime > 0) {
+        if (dominantGenre.includes('rpg') || dominantGenre.includes('rôle') || dominantGenre.includes('role')) {
+            rpgClass = state.language === 'en' ? 'Mage' : 'Mage';
+        } else if (dominantGenre.includes('action') || dominantGenre.includes('adventure') || dominantGenre.includes('aventure')) {
+            rpgClass = state.language === 'en' ? 'Warrior' : 'Guerrier';
+        } else if (dominantGenre.includes('rogue') || dominantGenre.includes('survival') || dominantGenre.includes('survie')) {
+            rpgClass = state.language === 'en' ? 'Rogue' : 'Assassin';
+        } else if (dominantGenre.includes('strategy') || dominantGenre.includes('stratégie') || dominantGenre.includes('tactical')) {
+            rpgClass = state.language === 'en' ? 'Tactician' : 'Stratège';
+        } else if (dominantGenre.includes('sim') || dominantGenre.includes('build') || dominantGenre.includes('craft') || dominantGenre.includes('gestion')) {
+            rpgClass = state.language === 'en' ? 'Builder' : 'Artisan';
+        } else if (dominantGenre.includes('platform') || dominantGenre.includes('plateforme') || dominantGenre.includes('arcade')) {
+            rpgClass = state.language === 'en' ? 'Acrobat' : 'Voltigeur';
+        } else if (dominantGenre.includes('fight') || dominantGenre.includes('combat') || dominantGenre.includes('versus')) {
+            rpgClass = state.language === 'en' ? 'Gladiator' : 'Gladiateur';
+        } else {
+            rpgClass = state.language === 'en' ? 'Adventurer' : 'Aventurier';
+        }
+    }
+
+    const classVal = $('#stats-class-val');
+    if (classVal) {
+        classVal.textContent = rpgClass;
+    }
+
+    // 2. Calculate Total Playtime
+    let totalPlaytimeMin = 0;
+    allGames.forEach(g => {
+        totalPlaytimeMin += g.playtime || 0;
+    });
+    const totalPlaytimeHours = Math.round((totalPlaytimeMin / 60) * 10) / 10;
+    
+    const playtimeVal = $('#stats-playtime-val');
+    if (playtimeVal) playtimeVal.textContent = `${totalPlaytimeHours.toLocaleString()}h`;
+    const playtimeSub = $('#stats-playtime-subtext');
+    if (playtimeSub) {
+        const gameCountText = state.language === 'en' 
+            ? `Across ${allGames.length} games` 
+            : `Sur tes ${allGames.length} jeux`;
+        playtimeSub.textContent = gameCountText;
+    }
+
+    // 3. Calculate Completion Rate
+    const totalGames = allGames.length;
     const completionRate = totalGames > 0 ? Math.round((state.completed.length / totalGames) * 100) : 0;
     const rateEl = $('#stats-completion-rate');
     if (rateEl) rateEl.textContent = `${completionRate}%`;
+    const completionSub = $('#stats-completion-subtext');
+    if (completionSub) {
+        const complText = state.language === 'en'
+            ? `${state.completed.length} / ${totalGames} games completed`
+            : `${state.completed.length} / ${totalGames} jeux terminés`;
+        completionSub.textContent = complText;
+    }
 
-    // 3. Generate 12-week Activity Heatmap Grid (84 cells)
+    // 4. Calculate Achievements
+    let totalAchsCount = 0;
+    let unlockedCount = 0;
+    allGames.forEach(game => {
+        if (game.achievements && game.achievements.length > 0) {
+            const isSim = game.achievements.length === SIMULATED_ACHIEVEMENTS.length && game.achievements.every(a => a.apiname.startsWith('sim_'));
+            if (!isSim) {
+                totalAchsCount += game.achievements.length;
+                unlockedCount += game.achievements.filter(a => a.unlocked).map(a => a.apiname).length;
+            }
+        }
+    });
+    
+    const achVal = $('#stats-achievements-val');
+    if (achVal) achVal.textContent = `${unlockedCount} / ${totalAchsCount}`;
+    const achSub = $('#stats-achievements-subtext');
+    if (achSub) {
+        const achRate = totalAchsCount > 0 ? Math.round((unlockedCount / totalAchsCount) * 100) : 0;
+        achSub.textContent = `${achRate}% complétés`;
+    }
+
+    // 5. Generate 12-week Activity Heatmap Grid (84 cells)
     const container = $('#stats-heatmap-container');
+    const tooltip = $('#heatmap-tooltip');
     if (container) {
         container.innerHTML = '';
         const grid = document.createElement('div');
@@ -1322,22 +1553,110 @@ function renderDetailedStats() {
             cell.className = 'heatmap-cell';
             cell.setAttribute('data-level', level);
 
-            // Localization
-            const dateStr = d.toLocaleDateString(state.language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' });
-            const minutesText = minutes > 0 ? `${minutes} min` : (state.language === 'en' ? 'No playtime' : 'Pas de jeu');
-            cell.title = `${dateStr} : ${minutesText}`;
+            // Localization for tooltip content
+            const dateStr = d.toLocaleDateString(state.language === 'en' ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+            
+            let minutesText = '';
+            if (minutes > 0) {
+                const h = Math.floor(minutes / 60);
+                const m = minutes % 60;
+                if (h > 0) {
+                    minutesText = state.language === 'en' ? `${h}h ${m}m played` : `${h}h ${m}m de jeu`;
+                } else {
+                    minutesText = state.language === 'en' ? `${m}m played` : `${m}m de jeu`;
+                }
+            } else {
+                minutesText = state.language === 'en' ? 'No playtime' : 'Aucun temps de jeu';
+            }
+            
+            const tooltipContent = `${dateStr} : ${minutesText}`;
+
+            // Attach dynamic custom tooltip events
+            cell.addEventListener('mouseenter', () => {
+                if (tooltip) {
+                    tooltip.textContent = tooltipContent;
+                    tooltip.style.opacity = '1';
+                }
+            });
+
+            cell.addEventListener('mousemove', (e) => {
+                if (tooltip) {
+                    tooltip.style.top = `${e.pageY}px`;
+                    tooltip.style.left = `${e.pageX}px`;
+                }
+            });
+
+            cell.addEventListener('mouseleave', () => {
+                if (tooltip) {
+                    tooltip.style.opacity = '0';
+                }
+            });
 
             grid.appendChild(cell);
         });
         container.appendChild(grid);
     }
 
-    // 4. Render 3 Recent Achievements
+    // 6. Render Top 3 Played Games
+    const topPlayedListEl = $('#stats-top-played-list');
+    if (topPlayedListEl) {
+        topPlayedListEl.innerHTML = '';
+        
+        // Sort games by playtime descending
+        const sortedGames = [...allGames]
+            .filter(g => (g.playtime || 0) > 0)
+            .sort((a, b) => (b.playtime || 0) - (a.playtime || 0));
+        
+        const top3 = sortedGames.slice(0, 3);
+        const maxPlaytime = top3.length > 0 ? (top3[0].playtime || 1) : 1;
+
+        if (top3.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.style.fontSize = '0.82rem';
+            emptyMsg.style.color = 'var(--text-tertiary)';
+            emptyMsg.style.textAlign = 'center';
+            emptyMsg.style.padding = '14px 0';
+            emptyMsg.textContent = state.language === 'en' ? "No games played yet" : "Aucun temps de jeu enregistré";
+            topPlayedListEl.appendChild(emptyMsg);
+        } else {
+            top3.forEach((game, idx) => {
+                const item = document.createElement('div');
+                item.className = 'top-played-item';
+
+                const hours = Math.round((game.playtime || 0) / 60 * 10) / 10;
+                const ratioPercent = Math.min(100, Math.round(((game.playtime || 0) / maxPlaytime) * 100));
+
+                const coverStyle = game.cover
+                    ? `background-image: url('${game.cover}')`
+                    : `background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center;`;
+                
+                const coverHtml = game.cover
+                    ? `<div style="width: 32px; height: 42px; border-radius: 4px; background-size: cover; background-position: center; ${coverStyle}"></div>`
+                    : `<div style="width: 32px; height: 42px; border-radius: 4px; ${coverStyle}"><svg style="width: 14px; height: 14px; color: var(--text-tertiary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg></div>`;
+
+                item.innerHTML = `
+                    <div class="top-played-rank rank-${idx + 1}">${idx + 1}</div>
+                    ${coverHtml}
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <div style="font-size: 0.85rem; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;">${game.name}</div>
+                            <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-violet);">${hours}h</div>
+                        </div>
+                        <div class="progress-bar-bg" style="height: 4px; background: rgba(255,255,255,0.03);">
+                            <div class="progress-bar-fill" style="width: ${ratioPercent}%; height: 100%; background: var(--accent-violet);"></div>
+                        </div>
+                    </div>
+                `;
+                topPlayedListEl.appendChild(item);
+            });
+        }
+    }
+
+    // 7. Render 3 Recent Achievements
     const listEl = $('#stats-recent-ach-list');
     if (listEl) {
         listEl.innerHTML = '';
         const recentAchs = [];
-        const allGames = [...state.backlog, ...state.completed];
         allGames.forEach(game => {
             if (game.achievements) {
                 game.achievements.forEach(ach => {
@@ -1431,7 +1750,41 @@ function updateNowPlaying() {
     }
 }
 
+let dailyBoostTimerInterval = null;
+
+function initDailyBoostTimer() {
+    if (!state.dailyBoost || !state.dailyBoost.gameIds || state.dailyBoost.gameIds.length === 0 || state.backlog.length === 0) {
+        if (dailyBoostTimerInterval) {
+            clearInterval(dailyBoostTimerInterval);
+            dailyBoostTimerInterval = null;
+        }
+        return;
+    }
+
+    if (!dailyBoostTimerInterval) {
+        const updateTimer = () => {
+            const now = new Date();
+            const midnight = new Date();
+            midnight.setHours(24, 0, 0, 0); // Next midnight
+
+            const diff = midnight.getTime() - now.getTime();
+            if (diff <= 0) {
+                // Day changed, recalculate boost
+                clearInterval(dailyBoostTimerInterval);
+                dailyBoostTimerInterval = null;
+                computeDailyBoost().then(() => {
+                    renderAll();
+                });
+                return;
+            }
+        };
+        updateTimer();
+        dailyBoostTimerInterval = setInterval(updateTimer, 60000); // Check every minute
+    }
+}
+
 function renderAll() {
+    initDailyBoostTimer();
     renderBacklog($('#backlog-search').value);
     renderCompleted($('#completed-search').value);
     updateStats();
@@ -1773,7 +2126,8 @@ async function addGame(name, platform, genre, notes = '', cover = '', silent = f
         cover,
         addedAt: Date.now(),
         steamAppId: steamAppId ? steamAppId.toString() : '',
-        achievements: []
+        achievements: [],
+        autoDetectExe: true
     };
     state.backlog.unshift(game);
     if (!state.currentGameId) state.currentGameId = game.id;
@@ -1794,7 +2148,7 @@ async function addGame(name, platform, genre, notes = '', cover = '', silent = f
 
     // Auto-find Steam AppID if not already provided
     if (game.steamAppId) {
-        await fetchAchievementsFromSteam(game);
+        await fetchAchievementsFromSteam(game, true);
         renderAll();
     } else {
         const found = await tryAutoFindSteamAppId(game);
@@ -1803,7 +2157,7 @@ async function addGame(name, platform, genre, notes = '', cover = '', silent = f
             if (manualAppId && parseInt(manualAppId)) {
                 game.steamAppId = manualAppId.trim();
                 await saveState();
-                await fetchAchievementsFromSteam(game);
+                await fetchAchievementsFromSteam(game, true);
                 renderAll();
             }
         }
@@ -1892,7 +2246,7 @@ async function tryAutoFindSteamAppId(game) {
             if (matched) {
                 game.steamAppId = matched.id.toString();
                 await saveState();
-                await fetchAchievementsFromSteam(game);
+                await fetchAchievementsFromSteam(game, true);
                 return true;
             }
         }
@@ -1913,7 +2267,7 @@ async function tryAutoFindSteamAppId(game) {
                 if (steamExt) {
                     game.steamAppId = steamExt.uid.toString();
                     await saveState();
-                    await fetchAchievementsFromSteam(game);
+                    await fetchAchievementsFromSteam(game, true);
                     return true;
                 }
             }
@@ -1923,27 +2277,26 @@ async function tryAutoFindSteamAppId(game) {
     return false;
 }
 
-async function fetchAchievementsFromSteam(game) {
+async function fetchAchievementsFromSteam(game, silent = false) {
     if (!game.steamAppId) return;
     try {
         let schemaList = [];
+        const langParam = state.language === 'en' ? 'english' : 'french';
 
-        // 1. Prioritize official Steam API Schema if API Key is available to get authentic apinames
-        if (state.steamApiKey) {
-            const schemaRes = await window.questlog.fetchSteamSchema(state.steamApiKey, game.steamAppId);
-            if (schemaRes && schemaRes.game && schemaRes.game.availableGameStats && schemaRes.game.availableGameStats.achievements) {
-                schemaList = schemaRes.game.availableGameStats.achievements.map(ach => ({
-                    apiname: ach.name,
-                    name: ach.displayName,
-                    description: ach.description || '',
-                    icon: ach.icon || ''
-                }));
-            }
+        // 1. Prioritize official Steam API Schema (uses user key or defaults to the app's internal key)
+        const schemaRes = await window.questlog.fetchSteamSchema(state.steamApiKey || '', game.steamAppId, langParam);
+        if (schemaRes && schemaRes.game && schemaRes.game.availableGameStats && schemaRes.game.availableGameStats.achievements) {
+            schemaList = schemaRes.game.availableGameStats.achievements.map(ach => ({
+                apiname: ach.name,
+                name: ach.displayName,
+                description: ach.description || '',
+                icon: ach.icon || ''
+            }));
         }
 
-        // 2. Fall back to public stats page scraping if official schema failed or API Key is missing
+        // 2. Fall back to public stats page scraping if official schema failed
         if (schemaList.length === 0 && isElectron) {
-            const publicRes = await window.questlog.fetchPublicSteamSchema(game.steamAppId);
+            const publicRes = await window.questlog.fetchPublicSteamSchema(game.steamAppId, langParam);
             if (publicRes.success && publicRes.achievements && publicRes.achievements.length > 0) {
                 schemaList = publicRes.achievements.map(ach => ({
                     apiname: ach.apiname,
@@ -1955,23 +2308,23 @@ async function fetchAchievementsFromSteam(game) {
         }
 
         if (schemaList.length > 0) {
-            // 3. Fetch online player achievements if Steam ID and API Key are present
+            // 3. Fetch online player achievements if Steam ID is present
             let playerList = [];
-            if (state.steamApiKey && state.steamId) {
-                const playerRes = await window.questlog.fetchSteamAchievements(state.steamApiKey, state.steamId, game.steamAppId);
+            if (state.steamId) {
+                const playerRes = await window.questlog.fetchSteamAchievements(state.steamApiKey || '', state.steamId, game.steamAppId);
                 playerList = playerRes?.playerstats?.achievements || [];
             }
 
             // 4. Check local achievements (Goldberg, RUNE, CODEX, etc.)
             let localUnlockedList = [];
             if (isElectron) {
-                const localRes = await window.questlog.checkLocalAchievements(game.steamAppId);
+                const localRes = await window.questlog.checkLocalAchievements(game.steamAppId, game.exePath);
                 if (localRes.success && localRes.achievements) {
                     localUnlockedList = localRes.achievements;
                 }
             }
 
-            const mapped = schemaList.map(ach => {
+            const mapped = schemaList.map((ach, idx) => {
                 const onlineAch = playerList.find(p => p.apiname === ach.apiname);
                 const isOnlineUnlocked = onlineAch ? onlineAch.achieved === 1 : false;
 
@@ -1983,28 +2336,66 @@ async function fetchAchievementsFromSteam(game) {
                     return cleanLoc === cleanApi || cleanLoc === cleanName || cleanLoc.includes(cleanApi) || cleanApi.includes(cleanLoc);
                 });
 
-                const oldAch = game.achievements ? game.achievements.find(o => o.apiname.toLowerCase() === ach.apiname.toLowerCase()) : null;
+                // Match with old cached achievement
+                // Try 1: by apiname
+                let oldAch = game.achievements ? game.achievements.find(o => o.apiname.toLowerCase() === ach.apiname.toLowerCase()) : null;
+                // Try 2: by name (french or english)
+                if (!oldAch && game.achievements) {
+                    oldAch = game.achievements.find(o => {
+                        const cleanOld = o.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const cleanNew = ach.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return cleanOld === cleanNew;
+                    });
+                }
+                // Try 3: by index if the lists have the same length
+                if (!oldAch && game.achievements && game.achievements.length === schemaList.length) {
+                    oldAch = game.achievements[idx];
+                }
+
                 const isCachedUnlocked = oldAch ? oldAch.unlocked : false;
+                const isUnlockedNow = isCachedUnlocked || isOnlineUnlocked || isLocalUnlocked;
+                const wasXpAwarded = oldAch ? (oldAch.xpAwarded === true || oldAch.xpAwarded === 1) : false;
 
                 return {
                     apiname: ach.apiname,
                     name: ach.name,
                     description: ach.description || '',
                     icon: ach.icon || '',
-                    unlocked: isCachedUnlocked || isOnlineUnlocked || isLocalUnlocked,
-                    unlockTime: onlineAch ? onlineAch.unlocktime : (oldAch ? oldAch.unlockTime : 0)
+                    unlocked: isUnlockedNow,
+                    unlockTime: onlineAch ? onlineAch.unlocktime : (oldAch ? oldAch.unlockTime : 0),
+                    xpAwarded: wasXpAwarded
                 };
             });
+
+            // If game has no achievements cached yet, or if they were the initial Quest Log simulated achievements,
+            // we consider it as the initial/first sync and must perform it silently.
+            const isFirstSync = !game.achievements || game.achievements.length === 0 || 
+                (game.achievements.length === SIMULATED_ACHIEVEMENTS.length && game.achievements.every(a => a.apiname.startsWith('sim_')));
+            const reallySilent = silent || isFirstSync;
+
+            // If it is a silent or initial sync, mark all currently unlocked achievements as xpAwarded
+            if (reallySilent) {
+                mapped.forEach(ach => {
+                    if (ach.unlocked) {
+                        ach.xpAwarded = true;
+                    }
+                });
+            }
 
             if (game.achievements && game.achievements.length > 0) {
                 const wasSimulated = game.achievements.length === SIMULATED_ACHIEVEMENTS.length && game.achievements.every(a => a.apiname.startsWith('sim_'));
 
-                if (!wasSimulated) {
+                if (!wasSimulated && !reallySilent) {
                     mapped.forEach(newAch => {
                         const oldAch = game.achievements.find(o => o.apiname.toLowerCase() === newAch.apiname.toLowerCase());
-                        if (newAch.unlocked && (!oldAch || !oldAch.unlocked)) {
+                        const isOldUnlocked = oldAch ? oldAch.unlocked : false;
+                        const isOldXpAwarded = oldAch ? (oldAch.xpAwarded === true || oldAch.xpAwarded === 1) : false;
+
+                        if (newAch.unlocked && !isOldUnlocked && !isOldXpAwarded) {
                             addXp(250);
                             addGold(50);
+                            newAch.xpAwarded = true; // Mark as rewarded!
+                            
                             showAchievementToast(newAch.name, newAch.description, 250, newAch.icon);
                             if (isElectron) {
                                 window.questlog.showOverlayAchievement({
@@ -2228,7 +2619,7 @@ async function linkSteamAppId(game, appId) {
     if (currentDetailsId === game.id) {
         $('#steam-appid-status').textContent = `Lié à Steam (AppID: ${appId})`;
     }
-    fetchAchievementsFromSteam(game);
+    fetchAchievementsFromSteam(game, true);
 }
 
 async function tryAutoFindSteamAppId(game) {
@@ -2247,7 +2638,7 @@ async function tryAutoFindSteamAppId(game) {
                 if (currentDetailsId === game.id) {
                     $('#input-steam-appid').value = game.steamAppId;
                     $('#steam-appid-status').textContent = `Lié à Steam (AppID: ${game.steamAppId})`;
-                    fetchAchievementsFromSteam(game);
+                    fetchAchievementsFromSteam(game, true);
                 }
             }
         }
@@ -2344,9 +2735,9 @@ async function startPlaySession(game, isAutoDetect = false) {
     };
 
     if (game.steamAppId) {
-        fetchAchievementsFromSteam(game);
+        fetchAchievementsFromSteam(game, true);
         if (isElectron) {
-            window.questlog.watchLocalAchievements(game.steamAppId);
+            window.questlog.watchLocalAchievements(game.steamAppId, game.exePath);
         }
     }
 
@@ -2371,8 +2762,16 @@ async function stopPlaySession() {
     const game = state.backlog.find(g => g.id === activePlaySession.gameId);
     if (game) {
         const elapsedMinutes = Math.round((Date.now() - activePlaySession.startTime) / 60000);
-        const xpEarned = elapsedMinutes * 5; // 5 XP per minute played
-        const goldEarned = elapsedMinutes * 1; // 1 gold per minute played
+        
+        // Check daily boost
+        const isBoosted = state.dailyBoost && state.dailyBoost.gameIds && state.dailyBoost.gameIds.includes(game.id);
+        const xpMultiplier = isBoosted ? 1.5 : 1;
+        const goldMultiplier = isBoosted ? 2 : 1;
+
+        const xpEarned = Math.round(elapsedMinutes * 5 * xpMultiplier); // 5 XP per minute played (x1.5 if boosted)
+        const goldEarned = Math.round(elapsedMinutes * 1 * goldMultiplier); // 1 gold per minute played (x2 if boosted)
+
+        game.lastPlayed = Date.now();
 
         // Award rewards
         if (xpEarned > 0) {
@@ -2419,21 +2818,25 @@ function showSessionRecap(game, elapsedMinutes, xpEarned, goldEarned) {
         $('#recap-game-cover').style.display = 'none';
     }
 
-    // Stats
-    $('#recap-stat-time').textContent = `${elapsedMinutes} min`;
-    $('#recap-stat-xp').textContent = `+${xpEarned} XP`;
-    $('#recap-stat-gold').textContent = `+${goldEarned}`;
+    // Set initial stats values to 0 for anim
+    const timeValEl = $('#recap-stat-time');
+    const xpValEl = $('#recap-stat-xp');
+    const goldValEl = $('#recap-stat-gold');
+
+    timeValEl.textContent = '0 min';
+    xpValEl.textContent = '+0 XP';
+    goldValEl.textContent = '+0';
 
     // Level Up Check
     const startLevel = sessionStartSnapshot ? sessionStartSnapshot.level : 1;
     const currentLevel = state.profile ? state.profile.level : 1;
     const banner = $('#recap-level-up-banner');
-    if (currentLevel > startLevel) {
+    const hasLeveledUp = currentLevel > startLevel;
+    if (hasLeveledUp) {
         banner.style.display = 'block';
         $('#recap-new-level').textContent = state.language === 'en'
             ? `New level reached: ${currentLevel}`
             : `Nouveau niveau atteint : ${currentLevel}`;
-        playSynthSound('levelup');
     } else {
         banner.style.display = 'none';
     }
@@ -2445,7 +2848,8 @@ function showSessionRecap(game, elapsedMinutes, xpEarned, goldEarned) {
     const achList = $('#recap-achievements-list');
     achList.innerHTML = '';
 
-    if (sessionUnlockedAchs.length > 0) {
+    const hasAchievements = sessionUnlockedAchs.length > 0;
+    if (hasAchievements) {
         achSection.style.display = 'flex';
         sessionUnlockedAchs.forEach(ach => {
             const achItem = document.createElement('div');
@@ -2453,7 +2857,15 @@ function showSessionRecap(game, elapsedMinutes, xpEarned, goldEarned) {
             
             const iconHtml = ach.icon
                 ? `<div class="recap-ach-icon" style="background-image: url('${ach.icon}')"></div>`
-                : `<div class="recap-ach-icon" style="display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); font-size: 1rem;">🏆</div>`;
+                : `<div class="recap-ach-icon" style="display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); color: var(--accent-violet);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                        <path d="M4 22h16"/>
+                        <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/>
+                        <path d="M12 2a6 6 0 0 1 6 6v3.5a6 6 0 0 1-12 0V8a6 6 0 0 1 6-6z"/>
+                    </svg>
+                   </div>`;
                 
             achItem.innerHTML = `
                 ${iconHtml}
@@ -2468,18 +2880,86 @@ function showSessionRecap(game, elapsedMinutes, xpEarned, goldEarned) {
         achSection.style.display = 'none';
     }
 
-    // Display modal and trigger animations
+    // Reset visibility classes on elements before opening modal
+    const items = overlay.querySelectorAll('.recap-item');
+    items.forEach(el => el.classList.remove('revealed'));
+
+    // Open modal
     openModal(overlay);
 
-    const items = overlay.querySelectorAll('.recap-item');
-    items.forEach(el => el.classList.remove('animate'));
+    // Helpers function for numbers counting animation
+    function animateCount(el, start, end, duration, prefix = '', suffix = '') {
+        const startTime = performance.now();
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const easeProgress = progress * (2 - progress); // Ease out Quad
+            const current = Math.round(start + easeProgress * (end - start));
+            el.textContent = `${prefix}${current}${suffix}`;
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            } else {
+                el.textContent = `${prefix}${end}${suffix}`;
+            }
+        }
+        requestAnimationFrame(update);
+    }
 
-    // Force DOM flow recalculation
-    overlay.offsetHeight;
+    // Cascade animations and sound triggers
+    let delay = 200;
 
-    items.forEach(el => {
-        el.classList.add('animate');
-    });
+    // 1. Reveal Game Header Info
+    setTimeout(() => {
+        const headerItem = overlay.querySelector('.recap-item');
+        if (headerItem) {
+            headerItem.classList.add('revealed');
+            playSynthSound('tick');
+        }
+    }, delay);
+
+    // 2. Reveal Stats Cards and animate count ups
+    delay += 500;
+    setTimeout(() => {
+        const statCards = overlay.querySelectorAll('div[style*="grid-template-columns"] .recap-item');
+        statCards.forEach((card, idx) => {
+            setTimeout(() => {
+                card.classList.add('revealed');
+                playSynthSound('tick');
+                
+                if (idx === 0) animateCount(timeValEl, 0, elapsedMinutes, 1000, '', ' min');
+                if (idx === 1) animateCount(xpValEl, 0, xpEarned, 1000, '+', ' XP');
+                if (idx === 2) animateCount(goldValEl, 0, goldEarned, 1000, '+', '');
+            }, idx * 150);
+        });
+    }, delay);
+
+    // 3. Level Up Banner (if active)
+    if (hasLeveledUp) {
+        delay += 900;
+        setTimeout(() => {
+            banner.classList.add('revealed');
+            playSynthSound('levelup');
+        }, delay);
+    }
+
+    // 4. Achievements List (if active)
+    if (hasAchievements) {
+        delay += 400;
+        setTimeout(() => {
+            achSection.classList.add('revealed');
+            playSynthSound('connect');
+        }, delay);
+    }
+
+    // 5. Continuer button
+    delay += 400;
+    setTimeout(() => {
+        const confirmBtn = $('#btn-session-recap-confirm');
+        if (confirmBtn) {
+            confirmBtn.classList.add('revealed');
+            playSynthSound('tick');
+        }
+    }, delay);
 
     // Close button registration
     const confirmBtn = $('#btn-session-recap-confirm');
@@ -2591,6 +3071,12 @@ function openGameDetails(id, fromCompleted = false) {
         $('#details-date').innerHTML = formatDate(game.completedAt) + playtimeLabel;
     } else {
         $('#details-date').innerHTML = `Ajouté le ${formatDate(game.addedAt)}${playtimeLabel}`;
+    }
+
+    // Populate Steam AppID input
+    const steamAppIdInput = $('#input-details-steam-appid');
+    if (steamAppIdInput) {
+        steamAppIdInput.value = game.steamAppId || '';
     }
 
     // Sync achievements or attempt auto-fill Steam ID
@@ -3182,6 +3668,38 @@ function initEvents() {
         } else {
             $('#steam-status-label').textContent = 'Non connecté';
             $('#steam-status-label').style.color = '';
+            
+            // Try to auto detect local Steam ID in background if not connected
+            if (isElectron) {
+                window.questlog.detectLocalSteamId().then(async (res) => {
+                    if (res.success && res.steamId) {
+                        const input = $('#steam-profile-input');
+                        if (input && !input.value.trim()) {
+                            input.value = res.steamId;
+                            
+                            // Link automatically!
+                            state.steamId = res.steamId;
+                            state.steamProfileInput = res.steamId;
+                            await saveState();
+                            
+                            $('#steam-status-label').textContent = '✅ Connecté';
+                            $('#steam-status-label').style.color = 'var(--accent-emerald)';
+                            
+                            showToast(state.language === 'en' ? "Steam profile linked automatically!" : "Profil Steam lié automatiquement !", "🔌");
+                            
+                            // Trigger background staggered refresh of all games achievements
+                            state.backlog.forEach((game, idx) => {
+                                if (game.steamAppId) {
+                                    setTimeout(async () => {
+                                        await fetchAchievementsFromSteam(game);
+                                        renderAll();
+                                    }, idx * 150);
+                                }
+                            });
+                        }
+                    }
+                }).catch(() => {});
+            }
         }
 
         const discordInput = $('#discord-client-id-input');
@@ -3263,6 +3781,16 @@ function initEvents() {
             $('#steam-status-label').textContent = 'Non connecté';
             $('#steam-status-label').style.color = '';
             showToast('Liaison Steam retirée.', 'ℹ️');
+            
+            // Refresh in background to clean remote stats and keep local/cache achievements
+            state.backlog.forEach((game, idx) => {
+                if (game.steamAppId) {
+                    setTimeout(async () => {
+                        await fetchAchievementsFromSteam(game);
+                        renderAll();
+                    }, idx * 150);
+                }
+            });
             return;
         }
 
@@ -3281,6 +3809,16 @@ function initEvents() {
                 $('#steam-status-label').textContent = '✅ Connecté';
                 $('#steam-status-label').style.color = 'var(--accent-emerald)';
                 showToast('Liaison Steam réussie !', '🔌');
+                
+                // Refresh in background to sync all games online achievements
+                state.backlog.forEach((game, idx) => {
+                    if (game.steamAppId) {
+                        setTimeout(async () => {
+                            await fetchAchievementsFromSteam(game);
+                            renderAll();
+                        }, idx * 150);
+                    }
+                });
             } else {
                 showToast(res.error || 'Impossible de lier le compte.', '❌');
             }
@@ -3644,6 +4182,32 @@ function initEvents() {
         if (game) selectExeFile(game, true);
     });
 
+    $('#btn-save-details-steam-appid').addEventListener('click', async () => {
+        if (!currentDetailsId) return;
+        const game = state.backlog.find(g => g.id === currentDetailsId) || state.completed.find(g => g.id === currentDetailsId);
+        if (game) {
+            const newAppId = $('#input-details-steam-appid').value.trim();
+            
+            // Clear old achievements cache if AppID changed
+            if (game.steamAppId !== newAppId) {
+                game.achievements = [];
+            }
+            
+            game.steamAppId = newAppId;
+            await saveState();
+
+            if (newAppId) {
+                showToast("Steam AppID mis à jour !", "🔌");
+                // Fetch silently or normally? Fetch silently to avoid spamming XP on manual update of existing game
+                await fetchAchievementsFromSteam(game, true);
+            } else {
+                showToast("Liaison Steam retirée.", "ℹ️");
+            }
+            renderAchievementsInDetails(game);
+            renderAll();
+        }
+    });
+
     // Rating
     const stars = $$('.star');
     stars.forEach(star => {
@@ -3786,7 +4350,7 @@ function initEvents() {
     $('#stat-total-playtime')?.addEventListener('click', openStats);
     $('#stat-avg-rating')?.addEventListener('click', openStats);
     $('#profile-level')?.addEventListener('click', openStats);
-    $('#btn-close-stats')?.addEventListener('click', () => closeModal($('#stats-overlay')));
+    $('#btn-close-stats-cross')?.addEventListener('click', () => closeModal($('#stats-overlay')));
 }
 
 // ---------- Particles ----------
@@ -3809,6 +4373,7 @@ function createParticles() {
 
 async function init() {
     await loadState();
+    await computeDailyBoost();
     createParticles();
     initEvents();
     renderAll();
@@ -3848,7 +4413,7 @@ async function init() {
 
             // Ensure achievements are loaded to prevent property lookup exceptions
             if (!game.achievements || game.achievements.length === 0) {
-                await fetchAchievementsFromSteam(game);
+                await fetchAchievementsFromSteam(game, true);
             }
             if (!game.achievements) {
                 game.achievements = [];
@@ -3862,8 +4427,10 @@ async function init() {
                     const cleanName = a.name.toLowerCase().replace(/[^a-z0-9]/g, '');
                     return cleanLoc === cleanApi || cleanLoc === cleanName || cleanLoc.includes(cleanApi) || cleanApi.includes(cleanLoc);
                 });
-                if (ach && !ach.unlocked) {
+                const isAlreadyAwarded = ach ? (ach.xpAwarded === true || ach.xpAwarded === 1) : false;
+                if (ach && !ach.unlocked && !isAlreadyAwarded) {
                     ach.unlocked = true;
+                    ach.xpAwarded = true; // Mark as rewarded!
                     ach.unlockTime = Math.floor(Date.now() / 1000);
                     updatedAny = true;
 
@@ -3902,6 +4469,38 @@ async function init() {
 
     if (!state.currentGameId && state.backlog.length > 0) {
         pickRandomGame(false);
+    }
+
+    // Tenter de trouver les executables en tâche de fond pour les jeux non liés
+    if (isElectron && state.backlog) {
+        state.backlog.forEach(async (game) => {
+            if (!game.exePath && game.autoDetectExe !== false) {
+                try {
+                    const autoPath = await window.questlog.autoFindExe(game.name);
+                    if (autoPath) {
+                        game.exePath = autoPath;
+                        await saveState();
+                        showToast(`Exécutable trouvé automatiquement pour ${game.name} : ${autoPath.split('\\').pop()} !`, "✅");
+                        await scanLocalGameConfig(game, autoPath);
+                        renderAll();
+                    }
+                } catch (e) {
+                    console.warn(`Recherche d'exécutable en tâche de fond échouée pour ${game.name}:`, e);
+                }
+            }
+        });
+    }
+
+    // Rafraîchir les succès de tous les jeux en arrière-plan de façon asynchrone au démarrage
+    if (state.backlog) {
+        state.backlog.forEach((game, idx) => {
+            if (game.steamAppId) {
+                setTimeout(async () => {
+                    await fetchAchievementsFromSteam(game, true);
+                    renderAll();
+                }, idx * 1000); // échelonner 1s par jeu pour ne pas saturer l'API
+            }
+        });
     }
 
     // Check if app version has updated to show release notes

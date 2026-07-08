@@ -708,6 +708,18 @@
                         </button>
                     </div>
 
+                    <!-- Steam AppID Section -->
+                    <div class="details-notes-block" id="details-steam-appid-block"
+                        style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;">
+                            <h4 class="details-subtitle" style="margin: 0;" data-i18n="details_steam_appid_subtitle">Liaison Steam AppID</h4>
+                            <input type="text" id="input-details-steam-appid" placeholder="Ex: 1313140"
+                                style="font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--bg-glass-border); border-radius: 6px; padding: 6px 10px; color: var(--text-primary); width: 120px; outline: none; transition: border-color 0.2s;" />
+                        </div>
+                        <button id="btn-save-details-steam-appid" class="btn-secondary btn-sm"
+                            style="padding: 6px 12px; font-weight: 600;">Associer</button>
+                    </div>
+
                     <!-- Executable Link Section -->
                     <div class="details-notes-block" id="details-exe-block"
                         style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
@@ -861,7 +873,7 @@
                 <!-- Achievements Unlocked list -->
                 <div id="recap-achievements-section" class="recap-item" style="display: flex; flex-direction: column; gap: 8px;">
                     <h4 id="recap-ach-title" style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 6px;" data-i18n="ach_unlocked">Succès Débloqués</h4>
-                    <div id="recap-achievements-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 150px; overflow-y: auto; padding-right: 4px;">
+                    <div id="recap-achievements-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 160px; overflow-y: auto; overflow-x: hidden; padding-right: 4px; box-sizing: border-box;">
                         <!-- Insérés dynamiquement -->
                     </div>
                 </div>
@@ -1046,51 +1058,96 @@
 
     <!-- ===== DETAILED STATISTICS MODAL ===== -->
     <div id="stats-overlay" class="modal-overlay" aria-hidden="true" style="z-index: 9997;">
-        <div id="modal-stats" class="modal modal-glass" role="dialog" aria-labelledby="stats-modal-title"
-             style="max-width: 600px; padding: var(--space-xl); max-height: 85vh; overflow-y: auto;">
-            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 24px;">
-                <div class="changelog-header-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 22px; height: 22px;">
+        <div id="modal-stats" class="modal modal-glass modal-stats-premium" role="dialog" aria-labelledby="stats-modal-title">
+            
+            <button id="btn-close-stats-cross" class="modal-close" aria-label="Fermer" style="top: 20px; right: 20px;">
+                <svg style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px;">
+                <div class="changelog-header-icon" style="width: 36px; height: 36px; min-width: 36px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
                         <line x1="18" y1="20" x2="18" y2="10"/>
                         <line x1="12" y1="20" x2="12" y2="4"/>
                         <line x1="6" y1="20" x2="6" y2="14"/>
                     </svg>
                 </div>
                 <div>
-                    <h2 id="stats-modal-title" class="modal-title" style="margin: 0; font-size: 1.4rem; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" data-i18n="stats_title">Tableau de Bord</h2>
-                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 2px 0 0 0;" data-i18n="stats_subtitle">Vue d'ensemble de vos accomplissements RPG</p>
+                    <h2 id="stats-modal-title" class="modal-title" style="margin: 0; font-size: 1.25rem; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" data-i18n="stats_title">Tableau de Bord</h2>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 2px 0 0 0;" data-i18n="stats_subtitle">Vue d'ensemble de vos accomplissements RPG</p>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 24px;">
-                <div class="stats-modal-card xp">
-                    <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="stats_total_xp">XP Cumulé</span>
-                    <span id="stats-total-xp" style="font-size: 1.25rem; font-weight: 800; color: var(--accent-violet);">0 XP</span>
-                </div>
-                <div class="stats-modal-card completion">
-                    <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="stats_completion_rate">Taux de Complétion</span>
-                    <span id="stats-completion-rate" style="font-size: 1.25rem; font-weight: 800; color: var(--accent-pink);">0%</span>
-                </div>
-            </div>
+            <!-- Two Column Layout to avoid scrolling -->
+            <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; flex: 1; min-height: 0;">
+                
+                <!-- Left Column: Key Stats and Activity Heatmap -->
+                <div style="display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+                    
+                    <!-- Stats cards 2x2 grid -->
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                        <div class="stats-modal-card level" style="padding: 12px; gap: 2px;">
+                            <span style="font-size: 0.68rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="stats_level_title">Niveau RPG</span>
+                            <span id="stats-level-val" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-violet);">Niveau 1</span>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                <span id="stats-xp-subtext" style="font-size: 0.62rem; color: var(--text-tertiary);">0 XP au total</span>
+                                <span id="stats-class-val" style="font-size: 0.6rem; font-weight: 800; color: var(--accent-violet); background: rgba(167, 139, 250, 0.15); padding: 1px 6px; border-radius: 4px; border: 0.8px solid rgba(167, 139, 250, 0.3); text-transform: uppercase; letter-spacing: 0.5px;">Novice</span>
+                            </div>
+                        </div>
+                        <div class="stats-modal-card playtime" style="padding: 12px; gap: 2px;">
+                            <span style="font-size: 0.68rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="stats_playtime_title">Temps de Jeu</span>
+                            <span id="stats-playtime-val" style="font-size: 1.15rem; font-weight: 800; color: #10b981;">0h</span>
+                            <span id="stats-playtime-subtext" style="font-size: 0.62rem; color: var(--text-tertiary);">Sur tous tes jeux</span>
+                        </div>
+                        <div class="stats-modal-card completion" style="padding: 12px; gap: 2px;">
+                            <span style="font-size: 0.68rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="stats_completion_rate">Taux de Complétion</span>
+                            <span id="stats-completion-rate" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-pink);">0%</span>
+                            <span id="stats-completion-subtext" style="font-size: 0.62rem; color: var(--text-tertiary);">0 / 0 jeux terminés</span>
+                        </div>
+                        <div class="stats-modal-card achievements" style="padding: 12px; gap: 2px;">
+                            <span style="font-size: 0.68rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="stats_achievements_title">Succès Débloqués</span>
+                            <span id="stats-achievements-val" style="font-size: 1.15rem; font-weight: 800; color: #ec4899;">0 / 0</span>
+                            <span id="stats-achievements-subtext" style="font-size: 0.62rem; color: var(--text-tertiary);">0% complétés</span>
+                        </div>
+                    </div>
 
-            <div style="margin-bottom: 24px;">
-                <h3 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="stats_activity_title">Activité des 12 dernières semaines</h3>
-                <div id="stats-heatmap-container" style="display: flex; gap: 4px; overflow-x: auto; padding: 16px; background: rgba(255,255,255,0.015); border: 1.5px solid rgba(255,255,255,0.04); border-radius: var(--radius-md); justify-content: center; align-items: center; min-height: 125px; box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.25);">
-                    <!-- Rempli dynamiquement en JS -->
+                    <!-- Heatmap -->
+                    <div>
+                        <h3 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="stats_activity_title">Activité des 12 dernières semaines</h3>
+                        <div id="stats-heatmap-container" style="display: flex; gap: 4px; padding: 12px; background: rgba(255,255,255,0.015); border: 1.5px solid rgba(255,255,255,0.04); border-radius: var(--radius-md); justify-content: center; align-items: center; min-height: 105px; box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.25);">
+                            <!-- Rempli dynamiquement en JS -->
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div style="margin-bottom: 24px;">
-                <h3 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 12px;" data-i18n="stats_recent_achievements">Succès Récents</h3>
-                <div id="stats-recent-ach-list" style="display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Rempli dynamiquement en JS -->
+                <!-- Right Column: Top Games and Recent Achievements -->
+                <div style="display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+                    
+                    <!-- Top Games -->
+                    <div id="stats-top-played-section">
+                        <h3 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;">Jeux les plus joués</h3>
+                        <div id="stats-top-played-list" style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Rempli dynamiquement en JS -->
+                        </div>
+                    </div>
+
+                    <!-- Recent achievements -->
+                    <div>
+                        <h3 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;" data-i18n="stats_recent_achievements">Succès Récents</h3>
+                        <div id="stats-recent-ach-list" style="display: flex; flex-direction: column; gap: 6px;">
+                            <!-- Rempli dynamiquement en JS -->
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <button id="btn-close-stats" class="btn-primary btn-full" style="padding: 14px; font-weight: 700; background: var(--gradient-primary); box-shadow: var(--shadow-glow); border: none; color: white; cursor: pointer; border-radius: var(--radius-md);" data-i18n="stats_close_btn">Fermer</button>
+            </div>
         </div>
     </div>
 
+    <div id="heatmap-tooltip" class="heatmap-tooltip"></div>
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
     <canvas id="confetti-canvas" class="confetti-canvas" aria-hidden="true"></canvas>
 
