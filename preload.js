@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('questlog', {
     onLocalAchievementsUpdated: (callback) => ipcRenderer.on('local-achievements-updated', (event, unlockedList) => callback(unlockedList)),
     resolveSteamId: (profileInput) => ipcRenderer.invoke('resolve-steam-id', profileInput),
     fetchSteamProfile: (steamId) => ipcRenderer.invoke('fetch-steam-profile', steamId),
+    fetchSteamReleaseDate: (appId) => ipcRenderer.invoke('fetch-steam-release-date', appId),
     detectLocalSteamId: () => ipcRenderer.invoke('detect-local-steam-id'),
     loadProfile: () => ipcRenderer.invoke('load-profile'),
     saveProfile: (profileData) => ipcRenderer.invoke('save-profile', profileData),

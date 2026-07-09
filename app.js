@@ -38,6 +38,56 @@ let state = {
 
 // ---------- Changelogs ----------
 const CHANGELOGS = {
+    '0.0.7': {
+        title: "Quest Log v0.0.7 — Horizon",
+        date: "9 Juillet 2026",
+        badge: "Major Update",
+        items: [
+            {
+                title: "Compte à Rebours de Sortie",
+                desc: "Les jeux pas encore sortis affichent un badge en temps réel sur leur jaquette (7h, J-3, Bientôt...) avec l'heure exacte de déblocage récupérée depuis Steam. La fiche affiche la date de sortie et le bouton de lancement passe en mode « Bientôt disponible ».",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>`
+            },
+            {
+                title: "Mega Boost Diamant",
+                desc: "Chaque jour, vos jeux en Boost ont désormais 5% de chance d'obtenir un Mega Boost violet (x2 XP). Reconnaissable à son diamant exclusif, il est ultra rare et précieux !",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <polygon points="12 2 20 9 12 22 4 9"/>
+                    <line x1="4" y1="9" x2="20" y2="9"/>
+                    <line x1="8" y1="2" x2="6" y2="9"/>
+                    <line x1="16" y1="2" x2="18" y2="9"/>
+                    <line x1="12" y1="9" x2="12" y2="22"/>
+                </svg>`
+            },
+            {
+                title: "Fiche de Détails Premium",
+                desc: "Les fiches de jeux utilisent désormais les wallpapers Steam en haute définition comme bannière, avec un fallback intelligent sur IGDB HD pour les jeux non sortis ou non Steam.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>`
+            },
+            {
+                title: "Sécurisation XP Succès",
+                desc: "Protection anti-doublon d'XP lors de la re-synchronisation de succès déjà débloqués (partage familial Steam, ré-ajout de jeu). Le Daily Boost est plafonné à 2 jeux maximum par jour.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>`
+            },
+            {
+                title: "Améliorations UI/UX",
+                desc: "Badges toujours alignés à droite sur une seule ligne. Icônes SVG pures partout (zéro emoji couleur). Dates traduites en temps réel (FR/EN). Jeux sans date de sortie affichent « Bientôt » / « À déterminer ».",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>`
+            }
+        ]
+    },
     '0.0.6': {
         title: "Quest Log v0.0.6 — Tableau de Bord & Intégration RPG",
         date: "8 Juillet 2026",
@@ -78,6 +128,15 @@ const CHANGELOGS = {
                 icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>`
+            },
+            {
+                title: "PC Scanner intelligent & automatique",
+                desc: "Le scanner de jeux installés extrait désormais à 100% l'AppID Steam des fichiers locaux (.acf) et trouve le meilleur exécutable (.exe) de façon autonome. Tout est lié d'office sans action manuelle requise !",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <rect x="2" y="2" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
                 </svg>`
             }
         ]
@@ -677,12 +736,16 @@ async function computeDailyBoost() {
     }
 
     const shuffled = [...selectedCategory].sort(() => 0.5 - Math.random());
-    const count = Math.min(shuffled.length, Math.random() < 0.5 ? 1 : 2);
+    const count = Math.min(shuffled.length, Math.random() < 0.8 ? 1 : 2);
     const selectedGames = shuffled.slice(0, count);
+
+    // 5% chance of Mega Boost for each selected game
+    const megaGames = selectedGames.filter(() => Math.random() < 0.05);
 
     state.dailyBoost = {
         date: today,
         gameIds: selectedGames.map(g => g.id),
+        megaIds: megaGames.map(g => g.id),
         previousGameIds: previousGameIds // Keep history for stability
     };
 
@@ -748,7 +811,7 @@ const LOCALES = {
         stats: "Statistiques",
         settings: "Paramètres",
         add_game: "Ajouter",
-        app_title: "Quest Log - Beta 0.0.6",
+        app_title: "Quest Log - Beta 0.0.7",
         global_progress: "Progression Globale",
         filter_placeholder: "Filtrer...",
         title_backlog: "Jeux dans le backlog",
@@ -929,7 +992,7 @@ const LOCALES = {
         stats: "Statistics",
         settings: "Settings",
         add_game: "Add Game",
-        app_title: "Quest Log - Beta 0.0.6",
+        app_title: "Quest Log - Beta 0.0.7",
         global_progress: "Global Progress",
         filter_placeholder: "Filter list...",
         title_backlog: "Games in backlog",
@@ -1197,6 +1260,31 @@ function formatDate(timestamp) {
     return new Date(timestamp).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function translateCountdownText(text) {
+    if (!text) return '';
+    if (state.language === 'en') return text;
+    
+    // Traduction de l'anglais Steam vers le français
+    // Ex: "This game plans to unlock in approximately 7 hours" -> "Disponible dans environ 7 heures"
+    const hrMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+hour/i);
+    const jrMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+day/i);
+    const mnMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+minute/i);
+
+    if (hrMatch) {
+        const count = hrMatch[1];
+        return `Disponible dans environ ${count} heure${count > 1 ? 's' : ''}`;
+    }
+    if (jrMatch) {
+        const count = jrMatch[1];
+        return `Disponible dans environ ${count} jour${count > 1 ? 's' : ''}`;
+    }
+    if (mnMatch) {
+        const count = mnMatch[1];
+        return `Disponible dans environ ${count} minute${count > 1 ? 's' : ''}`;
+    }
+    return text;
+}
+
 // ---------- DOM ----------
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -1205,7 +1293,8 @@ const $$ = (sel) => document.querySelectorAll(sel);
 function renderGameCard(game, isCompleted = false, isNew = false) {
     const card = document.createElement('div');
     const isBoosted = !isCompleted && state.dailyBoost && state.dailyBoost.gameIds && state.dailyBoost.gameIds.includes(game.id);
-    card.className = `game-card${isCompleted ? ' completed-card' : ''}${game.id === state.currentGameId ? ' active-game' : ''}${game.isFavorite ? ' favorite-card' : ''}${isBoosted ? ' boosted-card' : ''}`;
+    const isMegaBoost = !isCompleted && state.dailyBoost && state.dailyBoost.megaIds && state.dailyBoost.megaIds.includes(game.id);
+    card.className = `game-card${isCompleted ? ' completed-card' : ''}${game.id === state.currentGameId ? ' active-game' : ''}${game.isFavorite ? ' favorite-card' : ''}${isMegaBoost ? ' mega-boosted-card boosted-card' : (isBoosted ? ' boosted-card' : '')}`;
     if (isNew) card.classList.add('new-item');
     card.dataset.id = game.id;
     card.setAttribute('role', 'listitem');
@@ -1219,19 +1308,79 @@ function renderGameCard(game, isCompleted = false, isNew = false) {
 
     const icon = GENRE_ICONS[game.genre] || `<svg class="stat-svg" style="width:24px; height:24px;" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="3"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/></svg>`;
 
-    const boostBadgeHtml = isBoosted ? `
-        <div class="daily-boost-badge" title="Boost Actif : XP ×1.5 • Or ×2 !">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="boost-icon" style="width: 10px; height: 10px;">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-            <span>BOOST</span>
-        </div>` : '';
+    let boostBadgeHtml = '';
+    if (isMegaBoost) {
+        boostBadgeHtml = `
+            <div class="daily-boost-badge mega" title="Mega Boost Actif : XP ×2 • Or ×3 !">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="boost-icon" style="width: 10.5px; height: 10.5px;">
+                    <path d="M6 3h12l4 6-10 12L2 9z"/>
+                </svg>
+                <span>BOOST</span>
+            </div>`;
+    } else if (isBoosted) {
+        boostBadgeHtml = `
+            <div class="daily-boost-badge" title="Boost Actif : XP ×1.5 • Or ×2 !">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="boost-icon" style="width: 10px; height: 10px;">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                </svg>
+                <span>BOOST</span>
+            </div>`;
+    }
+
+    const isReleased = !game.releaseDate || (game.releaseDate * 1000 <= Date.now() && !game.comingSoon);
+    let countdownBadgeHtml = '';
+    if (!isReleased) {
+        const timeDiff = game.releaseDate * 1000 - Date.now();
+        const daysLeft = Math.ceil(timeDiff / (24 * 3600 * 1000));
+        const hoursLeft = Math.ceil(timeDiff / (3600 * 1000));
+        let text = '';
+        if (game.steamCountdownText) {
+            const hrMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+hour/i);
+            const jrMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+day/i);
+            const mnMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+minute/i);
+            if (hrMatch) {
+                text = `${hrMatch[1]}h`;
+            } else if (jrMatch) {
+                text = `J-${jrMatch[1]}`;
+            } else if (mnMatch) {
+                text = `${mnMatch[1]}m`;
+            } else {
+                text = game.steamCountdownText.replace("This game plans to unlock", "Dispo").substring(0, 12);
+            }
+        } else {
+            if (!game.releaseDate) {
+                text = state.language === 'en' ? 'Soon' : 'Bientôt';
+            } else if (timeDiff <= 0) {
+                text = state.language === 'en' ? 'Today' : 'Jour J';
+            } else if (daysLeft > 1) {
+                text = `J-${daysLeft}`;
+            } else {
+                text = `${hoursLeft}h`;
+            }
+        }
+        
+        const locale = state.language === 'en' ? 'en-US' : 'fr-FR';
+        const formattedDate = game.releaseDate ? new Date(game.releaseDate * 1000).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        const tooltipTitle = game.releaseDate 
+            ? (state.language === 'en' ? `Release Date: ${formattedDate}` : `Date de sortie : ${formattedDate}`)
+            : (state.language === 'en' ? 'Release Date: TBD' : 'Date de sortie : À déterminer');
+
+        countdownBadgeHtml = `
+            <div class="release-countdown-badge" title="${tooltipTitle}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 10px; height: 10px; margin-right: 3px; display: inline-block; vertical-align: middle;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>${text}</span>
+            </div>
+        `;
+    }
 
     let visualHtml = '';
     if (game.cover) {
-        visualHtml = `<div class="game-card-cover" style="background-image:url('${game.cover}')">${boostBadgeHtml}</div>`;
+        visualHtml = `<div class="game-card-cover" style="background-image:url('${game.cover}')">${boostBadgeHtml}${countdownBadgeHtml}</div>`;
     } else {
-        visualHtml = `<div class="game-card-icon genre-${game.genre}" style="display:flex; align-items:center; justify-content:center; position:relative;">${icon}${boostBadgeHtml}</div>`;
+        visualHtml = `<div class="game-card-icon genre-${game.genre}" style="display:flex; align-items:center; justify-content:center; position:relative;">${icon}${boostBadgeHtml}${countdownBadgeHtml}</div>`;
     }
 
     let actionsHtml = '';
@@ -1956,7 +2105,7 @@ async function performSearch(query, append = false) {
                 }
             }
 
-            addGame(game.name, platform, genre, '', coverUrl, false, steamAppId).then(() => {
+            addGame(game.name, platform, genre, '', coverUrl, false, steamAppId, '', game.first_release_date).then(() => {
                 showToast(`${game.name} ajouté au backlog !`, '🎮');
             });
         });
@@ -2116,7 +2265,7 @@ function closeModal(overlayEl) {
 }
 
 // ---------- Actions ----------
-async function addGame(name, platform, genre, notes = '', cover = '', silent = false, steamAppId = '') {
+async function addGame(name, platform, genre, notes = '', cover = '', silent = false, steamAppId = '', exePath = '', releaseDate = null, comingSoon = null) {
     const game = {
         id: generateId(),
         name: name.trim(),
@@ -2127,8 +2276,25 @@ async function addGame(name, platform, genre, notes = '', cover = '', silent = f
         addedAt: Date.now(),
         steamAppId: steamAppId ? steamAppId.toString() : '',
         achievements: [],
-        autoDetectExe: true
+        autoDetectExe: true,
+        exePath: exePath || '',
+        releaseDate: releaseDate ? parseInt(releaseDate) : null,
+        comingSoon: comingSoon
     };
+
+    if (game.steamAppId) {
+        try {
+            const res = await window.questlog.fetchSteamReleaseDate(game.steamAppId, state.language);
+            if (res && res.success) {
+                if (res.releaseDate) game.releaseDate = res.releaseDate;
+                if (res.comingSoon !== undefined) game.comingSoon = res.comingSoon;
+                if (res.countdownText) game.steamCountdownText = res.countdownText;
+            }
+        } catch (e) {
+            console.warn('Failed to fetch Steam release date during addGame:', e);
+        }
+    }
+
     state.backlog.unshift(game);
     if (!state.currentGameId) state.currentGameId = game.id;
     await saveState();
@@ -2386,28 +2552,34 @@ async function fetchAchievementsFromSteam(game, silent = false) {
                 const wasSimulated = game.achievements.length === SIMULATED_ACHIEVEMENTS.length && game.achievements.every(a => a.apiname.startsWith('sim_'));
 
                 if (!wasSimulated && !reallySilent) {
+                    const isGameCurrentlyActive = activePlaySession && activePlaySession.gameId === game.id;
                     mapped.forEach(newAch => {
                         const oldAch = game.achievements.find(o => o.apiname.toLowerCase() === newAch.apiname.toLowerCase());
                         const isOldUnlocked = oldAch ? oldAch.unlocked : false;
                         const isOldXpAwarded = oldAch ? (oldAch.xpAwarded === true || oldAch.xpAwarded === 1) : false;
 
                         if (newAch.unlocked && !isOldUnlocked && !isOldXpAwarded) {
-                            addXp(250);
-                            addGold(50);
-                            newAch.xpAwarded = true; // Mark as rewarded!
-                            
-                            showAchievementToast(newAch.name, newAch.description, 250, newAch.icon);
-                            if (isElectron) {
-                                window.questlog.showOverlayAchievement({
-                                    name: newAch.name,
-                                    description: newAch.description,
-                                    icon: newAch.icon
-                                });
-                            }
+                            if (isGameCurrentlyActive) {
+                                addXp(250);
+                                addGold(50);
+                                newAch.xpAwarded = true; // Mark as rewarded!
+                                
+                                showAchievementToast(newAch.name, newAch.description, 250, newAch.icon);
+                                if (isElectron) {
+                                    window.questlog.showOverlayAchievement({
+                                        name: newAch.name,
+                                        description: newAch.description,
+                                        icon: newAch.icon
+                                    });
+                                }
 
-                            // Auto detect game completion from achievement
-                            if (isGameCompletionAchievement(newAch)) {
-                                handleGameAutoCompleted(game, newAch);
+                                // Auto detect game completion from achievement
+                                if (isGameCompletionAchievement(newAch)) {
+                                    handleGameAutoCompleted(game, newAch);
+                                }
+                            } else {
+                                // Silent sync for historical/off-session achievements
+                                newAch.xpAwarded = true;
                             }
                         }
                     });
@@ -2763,13 +2935,15 @@ async function stopPlaySession() {
     if (game) {
         const elapsedMinutes = Math.round((Date.now() - activePlaySession.startTime) / 60000);
         
-        // Check daily boost
+        // Check daily boost and mega boost
         const isBoosted = state.dailyBoost && state.dailyBoost.gameIds && state.dailyBoost.gameIds.includes(game.id);
-        const xpMultiplier = isBoosted ? 1.5 : 1;
-        const goldMultiplier = isBoosted ? 2 : 1;
+        const isMegaBoost = state.dailyBoost && state.dailyBoost.megaIds && state.dailyBoost.megaIds.includes(game.id);
+        
+        const xpMultiplier = isMegaBoost ? 2.0 : (isBoosted ? 1.5 : 1);
+        const goldMultiplier = isMegaBoost ? 3.0 : (isBoosted ? 2 : 1);
 
-        const xpEarned = Math.round(elapsedMinutes * 5 * xpMultiplier); // 5 XP per minute played (x1.5 if boosted)
-        const goldEarned = Math.round(elapsedMinutes * 1 * goldMultiplier); // 1 gold per minute played (x2 if boosted)
+        const xpEarned = Math.round(elapsedMinutes * 5 * xpMultiplier); // 5 XP per minute played (x1.5 if boosted, x2 if mega boosted)
+        const goldEarned = Math.round(elapsedMinutes * 1 * goldMultiplier); // 1 gold per minute played (x2 if boosted, x3 if mega boosted)
 
         game.lastPlayed = Date.now();
 
@@ -2996,6 +3170,10 @@ function openGameDetails(id, fromCompleted = false) {
     const game = list.find(g => g.id === id);
     if (!game) return;
 
+    const isReleased = !game.releaseDate || (game.releaseDate * 1000 <= Date.now() && !game.comingSoon);
+    const locale = state.language === 'en' ? 'en-US' : 'fr-FR';
+    const formattedReleaseDate = game.releaseDate ? new Date(game.releaseDate * 1000).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+
     currentDetailsId = id;
     currentDetailsSource = fromCompleted ? 'completed' : 'backlog';
 
@@ -3008,8 +3186,24 @@ function openGameDetails(id, fromCompleted = false) {
     badge.textContent = fromCompleted ? 'Terminé' : 'À Jouer';
 
     if (game.cover) {
-        $('#details-cover-large').style.backgroundImage = `url('${game.cover}')`;
-        $('#details-cover-large').style.display = 'block';
+        const coverEl = $('#details-cover-large');
+        const igdbHdUrl = game.cover.replace('t_thumb', 't_720p').replace('t_cover_big', 't_720p');
+        
+        // Define default IGDB HD cover first to prevent empty banner during load
+        coverEl.style.setProperty('--cover-url', `url('${igdbHdUrl}')`);
+        coverEl.style.display = 'block';
+        
+        if (game.steamAppId) {
+            const steamUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${game.steamAppId}/library_hero.jpg`;
+            const imgTest = new Image();
+            imgTest.src = steamUrl;
+            imgTest.onload = () => {
+                // If Steam library hero exists, swap it in
+                if (currentDetailsId === game.id) {
+                    coverEl.style.setProperty('--cover-url', `url('${steamUrl}')`);
+                }
+            };
+        }
     } else {
         $('#details-cover-large').style.display = 'none';
     }
@@ -3048,14 +3242,26 @@ function openGameDetails(id, fromCompleted = false) {
         const playBtn = $('#btn-play-game');
         const statusSpan = $('#launcher-status');
 
-        if (activePlaySession && activePlaySession.gameId === game.id) {
-            playBtn.innerHTML = '<span><svg class="panel-svg" style="width:16px; height:16px; margin-right:6px;" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/></svg> Arrêter le suivi</span>';
-            playBtn.className = 'btn-danger btn-full';
-            statusSpan.textContent = 'En cours d\'exécution...';
-        } else {
-            playBtn.innerHTML = '<span><svg class="panel-svg" style="width:16px; height:16px; margin-right:6px;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Lancer le jeu</span>';
+        if (!isReleased) {
+            playBtn.innerHTML = `<span><svg class="panel-svg" style="width:16px; height:16px; margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Bientôt disponible</span>`;
             playBtn.className = 'btn-primary btn-full';
-            statusSpan.textContent = game.exePath ? game.exePath.split('\\').pop() : 'Aucun exécutable lié';
+            playBtn.style.opacity = '0.5';
+            playBtn.style.pointerEvents = 'none'; // Disable click
+            statusSpan.textContent = game.steamCountdownText 
+                ? translateCountdownText(game.steamCountdownText)
+                : (state.language === 'en' ? `Releasing on ${formattedReleaseDate}` : `Sortie le ${formattedReleaseDate}`);
+        } else {
+            playBtn.style.opacity = '1';
+            playBtn.style.pointerEvents = 'auto'; // Enable click
+            if (activePlaySession && activePlaySession.gameId === game.id) {
+                playBtn.innerHTML = '<span><svg class="panel-svg" style="width:16px; height:16px; margin-right:6px;" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/></svg> Arrêter le suivi</span>';
+                playBtn.className = 'btn-danger btn-full';
+                statusSpan.textContent = 'En cours d\'exécution...';
+            } else {
+                playBtn.innerHTML = '<span><svg class="panel-svg" style="width:16px; height:16px; margin-right:6px;" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Lancer le jeu</span>';
+                playBtn.className = 'btn-primary btn-full';
+                statusSpan.textContent = game.exePath ? game.exePath.split('\\').pop() : 'Aucun exécutable lié';
+            }
         }
     }
 
@@ -3070,7 +3276,12 @@ function openGameDetails(id, fromCompleted = false) {
     if (fromCompleted) {
         $('#details-date').innerHTML = formatDate(game.completedAt) + playtimeLabel;
     } else {
-        $('#details-date').innerHTML = `Ajouté le ${formatDate(game.addedAt)}${playtimeLabel}`;
+        let releaseLabel = '';
+        if (!isReleased) {
+            const releaseDisplay = formattedReleaseDate || (state.language === 'en' ? 'TBD' : 'À déterminer');
+            releaseLabel = ` • <span style="color: var(--accent-violet); font-weight: 700; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;"><svg class="stat-svg" style="width:12px; height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${state.language === 'en' ? 'Releasing' : 'Sortie'} : ${releaseDisplay}</span>`;
+        }
+        $('#details-date').innerHTML = `Ajouté le ${formatDate(game.addedAt)}${playtimeLabel}${releaseLabel}`;
     }
 
     // Populate Steam AppID input
@@ -3082,6 +3293,35 @@ function openGameDetails(id, fromCompleted = false) {
     // Sync achievements or attempt auto-fill Steam ID
     if (game.steamAppId) {
         fetchAchievementsFromSteam(game);
+        
+        // Dynamically fetch or update release date and comingSoon status
+        if (!game.releaseDate || game.comingSoon) {
+            window.questlog.fetchSteamReleaseDate(game.steamAppId, state.language).then(res => {
+                if (res && res.success) {
+                    let changed = false;
+                    if (res.releaseDate !== game.releaseDate) {
+                        game.releaseDate = res.releaseDate;
+                        changed = true;
+                    }
+                    if (res.comingSoon !== game.comingSoon) {
+                        game.comingSoon = res.comingSoon;
+                        changed = true;
+                    }
+                    if (res.countdownText !== game.steamCountdownText) {
+                        game.steamCountdownText = res.countdownText;
+                        changed = true;
+                    }
+                    if (changed) {
+                        saveState();
+                        if (currentDetailsId === game.id) {
+                            openGameDetails(game.id, fromCompleted);
+                        }
+                        isInitialRender = false;
+                        renderBacklog($('#backlog-search')?.value || '');
+                    }
+                }
+            }).catch(err => console.warn('Failed to fetch release date for', game.name, err));
+        }
     } else if (!fromCompleted) {
         tryAutoFindSteamAppId(game);
     }
@@ -4076,7 +4316,8 @@ function initEvents() {
                 let platformVal = 'PC';
                 if (g.platform === 'PC (Xbox)') platformVal = 'Xbox Series';
 
-                await addGame(g.name, platformVal, 'Autre', '', '', true);
+                // Pass the auto-detected steamAppId and exePath from the scanner results!
+                await addGame(g.name, platformVal, 'Autre', '', '', true, g.steamAppId || '', g.exePath || '');
                 addedCount++;
             }
         }
@@ -4194,16 +4435,34 @@ function initEvents() {
             }
             
             game.steamAppId = newAppId;
-            await saveState();
-
+            
             if (newAppId) {
                 showToast("Steam AppID mis à jour !", "🔌");
-                // Fetch silently or normally? Fetch silently to avoid spamming XP on manual update of existing game
+                try {
+                    const res = await window.questlog.fetchSteamReleaseDate(newAppId, state.language);
+                    if (res && res.success) {
+                        if (res.releaseDate) game.releaseDate = res.releaseDate;
+                        if (res.comingSoon !== undefined) game.comingSoon = res.comingSoon;
+                        if (res.countdownText) game.steamCountdownText = res.countdownText;
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch Steam release date on manual bind:', e);
+                }
                 await fetchAchievementsFromSteam(game, true);
             } else {
                 showToast("Liaison Steam retirée.", "ℹ️");
+                game.releaseDate = null;
+                game.comingSoon = null;
+                game.steamCountdownText = null;
             }
+            
+            await saveState();
             renderAchievementsInDetails(game);
+            
+            // Re-render current details if open to refresh countdown UI in details panel
+            if (currentDetailsId === game.id) {
+                openGameDetails(game.id, currentDetailsSource === 'completed');
+            }
             renderAll();
         }
     });
@@ -4491,11 +4750,33 @@ async function init() {
         });
     }
 
-    // Rafraîchir les succès de tous les jeux en arrière-plan de façon asynchrone au démarrage
+    // Rafraîchir les succès et dates de sortie de tous les jeux en arrière-plan au démarrage
     if (state.backlog) {
         state.backlog.forEach((game, idx) => {
             if (game.steamAppId) {
                 setTimeout(async () => {
+                    // Automatically fetch or update release date and comingSoon status
+                    if (!game.releaseDate || game.comingSoon) {
+                        try {
+                            const res = await window.questlog.fetchSteamReleaseDate(game.steamAppId);
+                            if (res && res.success) {
+                                let changed = false;
+                                if (res.releaseDate !== game.releaseDate) {
+                                    game.releaseDate = res.releaseDate;
+                                    changed = true;
+                                }
+                                if (res.comingSoon !== game.comingSoon) {
+                                    game.comingSoon = res.comingSoon;
+                                    changed = true;
+                                }
+                                if (changed) {
+                                    await saveState();
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Failed to fetch release date on startup for', game.name, e);
+                        }
+                    }
                     await fetchAchievementsFromSteam(game, true);
                     renderAll();
                 }, idx * 1000); // échelonner 1s par jeu pour ne pas saturer l'API
@@ -4505,6 +4786,17 @@ async function init() {
 
     // Check if app version has updated to show release notes
     await checkAndShowChangelog();
+
+    // Auto-refresh countdown badges for unreleased games every minute
+    setInterval(() => {
+        if (!state.backlog) return;
+        const hasUnreleased = state.backlog.some(g => g.releaseDate && g.releaseDate * 1000 > Date.now());
+        if (hasUnreleased) {
+            isInitialRender = false;
+            const searchVal = $('#backlog-search') ? $('#backlog-search').value : '';
+            renderBacklog(searchVal);
+        }
+    }, 60000);
 }
 
 async function checkAndShowChangelog() {

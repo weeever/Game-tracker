@@ -389,6 +389,94 @@ ipcMain.handle('import-data', async () => {
     return { success: false, error: 'Cancelled' };
 });
 
+function findBestExeInFolder(folderPath, gameName) {
+    const candidateExes = [];
+    const cleanString = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const gameNameClean = cleanString(gameName);
+
+    const scanDir = (dir, depth = 0) => {
+        if (depth > 2) return;
+        try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+                const fullPath = path.join(dir, file);
+                const stat = fs.statSync(fullPath);
+                if (stat.isDirectory()) {
+                    const lowerDir = file.toLowerCase();
+                    if (lowerDir !== 'commonredist' && lowerDir !== 'redist' && !lowerDir.startsWith('.')) {
+                        scanDir(fullPath, depth + 1);
+                    }
+                } else if (file.toLowerCase().endsWith('.exe')) {
+                    const lowerFile = file.toLowerCase();
+                    const isInstallerOrHelper =
+                        lowerFile.includes('unitycrashhandler') ||
+                        lowerFile.includes('unins') ||
+                        lowerFile.includes('vc_redist') ||
+                        lowerFile.includes('dxwebsetup') ||
+                        lowerFile.includes('dotnet') ||
+                        lowerFile.includes('cleanup') ||
+                        lowerFile.includes('touchup') ||
+                        lowerFile.includes('crash') ||
+                        lowerFile.includes('update') ||
+                        lowerFile.includes('setup') ||
+                        lowerFile.includes('config') ||
+                        lowerFile.includes('tool');
+
+                    if (!isInstallerOrHelper) {
+                        candidateExes.push({
+                            path: fullPath,
+                            name: file,
+                            size: stat.size
+                        });
+                    }
+                }
+            }
+        } catch (e) { }
+    };
+
+    scanDir(folderPath);
+
+    if (candidateExes.length === 0) return null;
+
+    // 1. Try exact name match
+    let bestExe = candidateExes.find(e => cleanString(e.name) === gameNameClean + 'exe');
+
+    // 2. Try prefix/contains match
+    if (!bestExe) {
+        bestExe = candidateExes.find(e => cleanString(e.name).includes(gameNameClean) || gameNameClean.includes(cleanString(e.name).replace('exe', '')));
+    }
+
+    // 3. Fallback to largest executable
+    if (!bestExe) {
+        bestExe = candidateExes.reduce((max, current) => current.size > max.size ? current : max, candidateExes[0]);
+    }
+
+    return bestExe ? bestExe.path : null;
+}
+
+function findSteamAppIdFromAcf(steamappsDir, folderName) {
+    try {
+        if (!fs.existsSync(steamappsDir)) return null;
+        const files = fs.readdirSync(steamappsDir);
+        for (const file of files) {
+            if (file.toLowerCase().startsWith('appmanifest_') && file.toLowerCase().endsWith('.acf')) {
+                const acfPath = path.join(steamappsDir, file);
+                const content = fs.readFileSync(acfPath, 'utf-8');
+                const installDirMatch = content.match(/"installdir"\s+"([^"]+)"/i);
+                if (installDirMatch && installDirMatch[1].toLowerCase().trim() === folderName.toLowerCase().trim()) {
+                    const appIdMatch = content.match(/"appid"\s+"(\d+)"/i);
+                    if (appIdMatch) {
+                        return appIdMatch[1];
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('Error reading .acf files:', e);
+    }
+    return null;
+}
+
 ipcMain.handle('scan-local-games', async () => {
     const games = new Set();
     const addGamesFromDir = (dir, platform) => {
@@ -401,7 +489,25 @@ ipcMain.handle('scan-local-games', async () => {
                         // Filter out common non-game folders
                         const ignoreList = ['Steamworks Shared', 'SteamController', 'CommonRedist', 'DirectX', 'DotNet', 'vcredist', 'Crashpad'];
                         if (!ignoreList.includes(name) && !name.startsWith('.') && name.length > 2) {
-                            games.add(JSON.stringify({ name, platform }));
+                            const folderPath = path.join(dir, name);
+                            
+                            // 1. Auto-find best exe inside folder
+                            const exePath = findBestExeInFolder(folderPath, name);
+                            
+                            // 2. If Steam, auto-detect Steam AppID from appmanifest acf
+                            let steamAppId = null;
+                            if (platform === 'PC (Steam)') {
+                                const steamappsDir = path.dirname(dir); // steamapps
+                                steamAppId = findSteamAppIdFromAcf(steamappsDir, name);
+                            }
+
+                            games.add(JSON.stringify({ 
+                                name, 
+                                platform, 
+                                folderPath, 
+                                exePath,
+                                steamAppId
+                            }));
                         }
                     }
                 });
@@ -433,6 +539,7 @@ ipcMain.handle('scan-local-games', async () => {
 
     drives.forEach(drive => {
         steamPaths.forEach(p => addGamesFromDir(drive + p, 'PC (Steam)'));
+        epicPaths.forEach(p => opentargetsDir => {}); // Just helper structure, ignore
         epicPaths.forEach(p => addGamesFromDir(drive + p, 'PC (Epic)'));
         xboxPaths.forEach(p => addGamesFromDir(drive + p, 'PC (Xbox)'));
         eaPaths.forEach(p => addGamesFromDir(drive + p, 'PC (EA)'));
@@ -602,6 +709,67 @@ ipcMain.handle('fetch-steam-profile', async (event, steamId) => {
             }).on('error', (e) => resolve({ success: false, error: e.message }));
         });
         return result;
+    } catch (err) {
+        return { success: false, error: err.message || 'Erreur inconnue.' };
+    }
+});
+
+ipcMain.handle('fetch-steam-release-date', async (event, appId) => {
+    try {
+        return await new Promise((resolve) => {
+            // Force English locale to ensure Date.parse works reliably on V8 (regardless of OS language)
+            const url = `https://store.steampowered.com/app/${appId}/?l=english`;
+            
+            https.get(url, { headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 
+                'Cookie': 'wants_mature_content=1; birthtime=0; lastagecheckage=1-0-1990' 
+            } }, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const isComingSoon = data.includes('game_area_comingsoon');
+                        const isAlreadyReleased = data.includes('game_area_purchase_game') || data.includes('btn_add_to_cart') || data.includes('class="game_area_purchase_game_wrapper"');
+                        
+                        // If it's a mature age check page or error page, do not override
+                        if (!isComingSoon && !isAlreadyReleased && (data.includes('agecheck') || data.includes('agecheck_message') || data.length < 5000)) {
+                            resolve({ success: false, error: 'Page Steam d\'accès restreint ou d\'âge détectée.' });
+                            return;
+                        }
+
+                        // Extract precise countdown text if available
+                        const match = data.match(/<div class="game_area_comingsoon game_area_bubble">[\s\S]*?<p>([\s\S]*?)<\/p>/i);
+                        const countdownText = match ? match[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
+
+                        // Extract release date string from English H1 inside game_area_comingsoon
+                        const headerMatch = data.match(/<div class="game_area_comingsoon game_area_bubble">[\s\S]*?<h1>([\s\S]*?)<\/h1>/i);
+                        const rawHeader = headerMatch ? headerMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
+                        
+                        let dateString = rawHeader.replace(/Coming\s+/i, '').trim();
+                        if (dateString.toLowerCase() === 'soon') dateString = '';
+
+                        // Try to parse a timestamp from dateString (fallback)
+                        let timestamp = null;
+                        if (dateString) {
+                            const parsed = Date.parse(dateString);
+                            if (!isNaN(parsed)) {
+                                timestamp = Math.floor(parsed / 1000);
+                            }
+                        }
+
+                        resolve({
+                            success: true,
+                            comingSoon: isComingSoon,
+                            countdownText: countdownText,
+                            dateString: dateString,
+                            releaseDate: timestamp
+                        });
+                    } catch (e) {
+                        resolve({ success: false, error: 'Échec de lecture de la page Steam.' });
+                    }
+                });
+            }).on('error', (e) => resolve({ success: false, error: e.message }));
+        });
     } catch (err) {
         return { success: false, error: err.message || 'Erreur inconnue.' };
     }
