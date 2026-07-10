@@ -38,6 +38,47 @@ let state = {
 
 // ---------- Changelogs ----------
 const CHANGELOGS = {
+    '0.0.8': {
+        title: "Quest Log v0.0.8 — Paramètres Avancés & Raccourcis",
+        date: "10 Juillet 2026",
+        badge: "Minor Update",
+        items: [
+            {
+                title: "Paramètres Avancés Épurés",
+                desc: "Les options techniques (Liaison Steam AppID, SteamID Perso, Fichier .exe) sont maintenant regroupées dans un panneau accordéon compact et discret. Le bouton de bascule s'intègre sans bordure visible directement dans l'onglet Lancement pour garder une interface claire.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>`
+            },
+            {
+                title: "Raccourcis Utiles",
+                desc: "Ajout de boutons de redirection directe. Vous pouvez maintenant cliquer sur « Voir sur Steam » pour ouvrir instantanément la page magasin du jeu, ou sur « Dossier » pour explorer les fichiers locaux de l'exécutable lié en un clic.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>`
+            },
+            {
+                title: "Compteur de Lancements",
+                desc: "Suivez votre assiduité ! L'application comptabilise désormais le nombre total de fois où vous avez démarré chaque jeu depuis votre tableau de bord, affiché fièrement dans la fiche des détails.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M4.5 16.5c-1.5 1.26-2.5 3.19-2.5 5.5h20c0-2.31-1-4.24-2.5-5.5"/>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 10h-2V7h2v5zm0 4h-2v-2h2v2z"/>
+                </svg>`
+            },
+            {
+                title: "Stabilisation & Boosts Intelligents",
+                desc: "Les jeux non sortis (comme Light No Fire) sont désormais exclus du calcul des Boosts Quotidiens d'XP. Les étiquettes affichent « Soon » de manière universelle, et la persistance des suppressions de SteamID Custom a été fiabilisée.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>`
+            }
+        ]
+    },
     '0.0.7': {
         title: "Quest Log v0.0.7 — Horizon",
         date: "9 Juillet 2026",
@@ -667,7 +708,12 @@ async function loadState() {
 }
 
 async function computeDailyBoost() {
-    if (!state.backlog || state.backlog.length === 0) {
+    const releasedBacklog = (state.backlog || []).filter(game => {
+        const isGameReleased = !game.comingSoon && (!game.releaseDate || game.releaseDate * 1000 <= Date.now());
+        return isGameReleased;
+    });
+
+    if (releasedBacklog.length === 0) {
         state.dailyBoost = null;
         return;
     }
@@ -685,14 +731,14 @@ async function computeDailyBoost() {
     const previousGameIds = (state.dailyBoost && Array.isArray(state.dailyBoost.gameIds)) ? state.dailyBoost.gameIds : [];
     
     // We only exclude previous games if there are enough games in the backlog to choose from
-    const canExcludePrevious = state.backlog.length > previousGameIds.length;
+    const canExcludePrevious = releasedBacklog.length > previousGameIds.length;
     const isExcluded = (gameId) => canExcludePrevious && previousGameIds.includes(gameId);
 
     const candidateHigh = [];
     const candidateMedium = [];
     const candidateRandom = [];
 
-    state.backlog.forEach(game => {
+    releasedBacklog.forEach(game => {
         if (isExcluded(game.id)) return;
 
         const playtimeMin = game.playtime || 0;
@@ -717,7 +763,7 @@ async function computeDailyBoost() {
 
     // Fallback if everything got excluded
     if (candidateRandom.length === 0) {
-        candidateRandom.push(...state.backlog);
+        candidateRandom.push(...releasedBacklog);
     }
 
     let selectedCategory = [];
@@ -882,12 +928,29 @@ const LOCALES = {
         settings_danger_title: "Zone de Danger",
         settings_danger_desc: "Efface définitivement toutes les données de ton Quest Log (Jeux, Niveaux, Progression).",
         settings_danger_btn: "Réinitialiser l'application",
+        details_steam_appid_subtitle: "Liaison Steam AppID",
+        details_advanced_settings: "Paramètres avancés",
+        details_steam_customid_subtitle: "SteamID Perso",
+        details_steam_customid_placeholder: "Ex : 76561198000000000",
+        details_steam_customid_btn: "Enregistrer",
+        toast_steam_customid_updated: "SteamID perso mis à jour !",
+        toast_steam_customid_removed: "SteamID perso retiré.",
         details_notes_subtitle: "Notes",
         details_launch_subtitle: "Lancement",
         details_exe_subtitle: "Fichier Exécutable (.exe)",
         details_exe_unlinked: "Aucun exécutable lié",
         details_exe_btn: "Lier un .exe",
+        details_btn_view_steam: "Voir sur Steam",
+        details_btn_open_folder: "Dossier",
         details_achievements_title: "Succès",
+        local_trophies_toggle: "Mode Local",
+        local_trophies_activate_title: "Activer les Trophées Locaux ?",
+        local_trophies_activate_desc: "Les succès déjà débloqués seront masqués et ta progression repartira de zéro pour ce jeu. Tu pourras désactiver ce mode à tout moment.",
+        local_trophies_activate_btn: "Activer",
+        local_trophies_cancel_btn: "Annuler",
+        local_trophies_activated_toast: "Trophées Locaux activés ! Progression remise à zéro.",
+        local_trophies_deactivated_toast: "Trophées Locaux désactivés. Succès Steam restaurés.",
+        local_trophies_badge: "Local",
         rating_celebration_title: "Bravo !",
         rating_celebration_subtitle: "Comment tu as trouvé ce jeu ?",
         rating_label_bad: "Bof",
@@ -1063,12 +1126,29 @@ const LOCALES = {
         settings_danger_title: "Danger Zone",
         settings_danger_desc: "Permanently erase all your Quest Log data (Games, Levels, Progress).",
         settings_danger_btn: "Reset application",
+        details_steam_appid_subtitle: "Steam AppID Link",
+        details_advanced_settings: "Advanced Settings",
+        details_steam_customid_subtitle: "Custom SteamID",
+        details_steam_customid_placeholder: "Ex: 76561198000000000",
+        details_steam_customid_btn: "Save",
+        toast_steam_customid_updated: "Custom SteamID updated!",
+        toast_steam_customid_removed: "Custom SteamID removed.",
         details_notes_subtitle: "Notes",
         details_launch_subtitle: "Launcher",
         details_exe_subtitle: "Executable File (.exe)",
         details_exe_unlinked: "No executable linked",
         details_exe_btn: "Link an .exe",
+        details_btn_view_steam: "View on Steam",
+        details_btn_open_folder: "Folder",
         details_achievements_title: "Achievements",
+        local_trophies_toggle: "Local Mode",
+        local_trophies_activate_title: "Enable Local Trophies?",
+        local_trophies_activate_desc: "Already unlocked achievements will be hidden and your progress will reset to zero for this game. You can disable this mode at any time.",
+        local_trophies_activate_btn: "Enable",
+        local_trophies_cancel_btn: "Cancel",
+        local_trophies_activated_toast: "Local Trophies enabled! Progress reset to zero.",
+        local_trophies_deactivated_toast: "Local Trophies disabled. Steam achievements restored.",
+        local_trophies_badge: "Local",
         rating_celebration_title: "Congratulations!",
         rating_celebration_subtitle: "How did you find this game?",
         rating_label_bad: "Meh",
@@ -1262,6 +1342,7 @@ function formatDate(timestamp) {
 
 function translateCountdownText(text) {
     if (!text) return '';
+    if (!text.toLowerCase().includes('unlock')) return '';
     if (state.language === 'en') return text;
     
     // Traduction de l'anglais Steam vers le français
@@ -1269,6 +1350,9 @@ function translateCountdownText(text) {
     const hrMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+hour/i);
     const jrMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+day/i);
     const mnMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+minute/i);
+    const wkMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+week/i);
+    const moMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+month/i);
+    const yrMatch = text.match(/in\s+(?:approximately\s+)?(\d+)\s+year/i);
 
     if (hrMatch) {
         const count = hrMatch[1];
@@ -1281,6 +1365,18 @@ function translateCountdownText(text) {
     if (mnMatch) {
         const count = mnMatch[1];
         return `Disponible dans environ ${count} minute${count > 1 ? 's' : ''}`;
+    }
+    if (wkMatch) {
+        const count = wkMatch[1];
+        return `Disponible dans environ ${count} semaine${count > 1 ? 's' : ''}`;
+    }
+    if (moMatch) {
+        const count = moMatch[1];
+        return `Disponible dans environ ${count} mois`;
+    }
+    if (yrMatch) {
+        const count = yrMatch[1];
+        return `Disponible dans environ ${count} an${count > 1 ? 's' : ''}`;
     }
     return text;
 }
@@ -1327,29 +1423,39 @@ function renderGameCard(game, isCompleted = false, isNew = false) {
             </div>`;
     }
 
-    const isReleased = !game.releaseDate || (game.releaseDate * 1000 <= Date.now() && !game.comingSoon);
+    const isReleased = !game.comingSoon && (!game.releaseDate || game.releaseDate * 1000 <= Date.now());
     let countdownBadgeHtml = '';
     if (!isReleased) {
         const timeDiff = game.releaseDate * 1000 - Date.now();
         const daysLeft = Math.ceil(timeDiff / (24 * 3600 * 1000));
         const hoursLeft = Math.ceil(timeDiff / (3600 * 1000));
         let text = '';
-        if (game.steamCountdownText) {
+        const hasValidCountdown = game.steamCountdownText && game.steamCountdownText.toLowerCase().includes('unlock');
+        if (hasValidCountdown) {
             const hrMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+hour/i);
             const jrMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+day/i);
             const mnMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+minute/i);
+            const wkMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+week/i);
+            const moMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+month/i);
+            const yrMatch = game.steamCountdownText.match(/in\s+(?:approximately\s+)?(\d+)\s+year/i);
             if (hrMatch) {
                 text = `${hrMatch[1]}h`;
             } else if (jrMatch) {
                 text = `J-${jrMatch[1]}`;
             } else if (mnMatch) {
                 text = `${mnMatch[1]}m`;
+            } else if (wkMatch) {
+                text = state.language === 'en' ? `${wkMatch[1]}w` : `${wkMatch[1]} sem.`;
+            } else if (moMatch) {
+                text = state.language === 'en' ? `${moMatch[1]}mo` : `${moMatch[1]} mois`;
+            } else if (yrMatch) {
+                text = state.language === 'en' ? `${yrMatch[1]}y` : `${yrMatch[1]} an${yrMatch[1] > 1 ? 's' : ''}`;
             } else {
                 text = game.steamCountdownText.replace("This game plans to unlock", "Dispo").substring(0, 12);
             }
         } else {
             if (!game.releaseDate) {
-                text = state.language === 'en' ? 'Soon' : 'Bientôt';
+                text = 'Soon';
             } else if (timeDiff <= 0) {
                 text = state.language === 'en' ? 'Today' : 'Jour J';
             } else if (daysLeft > 1) {
@@ -1420,7 +1526,12 @@ function renderGameCard(game, isCompleted = false, isNew = false) {
     let achProgressHtml = '';
     if (game.achievements && game.achievements.length > 0) {
         const total = game.achievements.length;
-        const unlocked = game.achievements.filter(a => a.unlocked).length;
+        const isLocalMode = game.localTrophies === true;
+        const cardBaselineSet = isLocalMode ? new Set(game.localTrophiesBaseline || []) : null;
+        const unlocked = game.achievements.filter(a => {
+            if (!isLocalMode) return a.unlocked;
+            return a.unlocked && !cardBaselineSet.has(a.apiname);
+        }).length;
         const pct = Math.round((unlocked / total) * 100);
         achProgressHtml = `
             <div class="game-card-ach-progress" title="${unlocked}/${total} succès déverrouillés">
@@ -2115,7 +2226,11 @@ async function performSearch(query, append = false) {
 }
 
 // ---------- UI Interaction ----------
-// ---------- UI Interaction ----------
+function t(key) {
+    const lang = state?.language || 'fr';
+    return LOCALES[lang]?.[key] || LOCALES['fr']?.[key] || '';
+}
+
 function showToast(message, icon = '✅') {
     const toast = document.createElement('div');
     toast.className = 'toast';
@@ -2276,6 +2391,9 @@ async function addGame(name, platform, genre, notes = '', cover = '', silent = f
         addedAt: Date.now(),
         steamAppId: steamAppId ? steamAppId.toString() : '',
         achievements: [],
+        localTrophies: false,
+        localTrophiesBaseline: [],
+        localTrophiesUnlockTimes: {},
         autoDetectExe: true,
         exePath: exePath || '',
         releaseDate: releaseDate ? parseInt(releaseDate) : null,
@@ -2444,7 +2562,7 @@ async function tryAutoFindSteamAppId(game) {
 }
 
 async function fetchAchievementsFromSteam(game, silent = false) {
-    if (!game.steamAppId) return;
+    if (!game.steamAppId) return { success: false, error: 'No Steam AppID linked' };
     try {
         let schemaList = [];
         const langParam = state.language === 'en' ? 'english' : 'french';
@@ -2476,9 +2594,21 @@ async function fetchAchievementsFromSteam(game, silent = false) {
         if (schemaList.length > 0) {
             // 3. Fetch online player achievements if Steam ID is present
             let playerList = [];
-            if (state.steamId) {
-                const playerRes = await window.questlog.fetchSteamAchievements(state.steamApiKey || '', state.steamId, game.steamAppId);
-                playerList = playerRes?.playerstats?.achievements || [];
+            let fetchFailed = false;
+            let fetchError = '';
+            
+            const targetSteamId = game.steamCustomId || state.steamId;
+            if (targetSteamId) {
+                const playerRes = await window.questlog.fetchSteamAchievements(state.steamApiKey || '', targetSteamId, game.steamAppId);
+                if (playerRes && playerRes.error) {
+                    fetchFailed = true;
+                    fetchError = playerRes.error;
+                } else if (playerRes && playerRes.playerstats && playerRes.playerstats.success === false) {
+                    fetchFailed = true;
+                    fetchError = playerRes.playerstats.error || 'Private profile or invalid SteamID';
+                } else {
+                    playerList = playerRes?.playerstats?.achievements || [];
+                }
             }
 
             // 4. Check local achievements (Goldberg, RUNE, CODEX, etc.)
@@ -2499,7 +2629,7 @@ async function fetchAchievementsFromSteam(game, silent = false) {
                     const cleanLoc = locKey.toLowerCase().replace(/[^a-z0-9]/g, '');
                     const cleanApi = ach.apiname.toLowerCase().replace(/[^a-z0-9]/g, '');
                     const cleanName = ach.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    return cleanLoc === cleanApi || cleanLoc === cleanName || cleanLoc.includes(cleanApi) || cleanApi.includes(cleanLoc);
+                    return cleanLoc === cleanApi || cleanLoc === cleanName || cleanLoc.includes(cleanApi) || cleanApi.includes(locKey);
                 });
 
                 // Match with old cached achievement
@@ -2587,13 +2717,31 @@ async function fetchAchievementsFromSteam(game, silent = false) {
             }
 
             game.achievements = mapped;
+            if (game.localTrophies && game.localTrophiesBaseline && game.localTrophiesBaseline.length > 0) {
+                const lBaselineSet = new Set(game.localTrophiesBaseline);
+                game.achievements.forEach(ach => {
+                    if (lBaselineSet.has(ach.apiname) && ach.unlocked) {
+                        ach.xpAwarded = true;
+                    }
+                });
+            }
             await saveState();
 
             if (currentDetailsId === game.id) {
                 renderAchievementsInDetails(game);
             }
+
+            if (fetchFailed) {
+                return { success: false, error: fetchError };
+            }
+            return { success: true };
+        } else {
+            return { success: false, error: 'No achievements schema found' };
         }
-    } catch (e) { console.warn('Failed to fetch Steam achievements:', e); }
+    } catch (e) {
+        console.warn('Failed to fetch Steam achievements:', e);
+        return { success: false, error: e.message || 'Unknown error' };
+    }
 }
 
 async function checkSimulatedAchievements(game) {
@@ -2645,11 +2793,25 @@ function renderAchievementsInDetails(game) {
     list.innerHTML = '';
 
     const total = game.achievements.length;
-    const unlocked = game.achievements.filter(a => a.unlocked).length;
+    const isLocalMode = game.localTrophies === true;
+    const baselineSet = isLocalMode ? new Set(game.localTrophiesBaseline || []) : null;
+    
+    const getLocalUnlocked = (ach) => {
+        if (!isLocalMode) return ach.unlocked;
+        return ach.unlocked && !baselineSet.has(ach.apiname);
+    };
+    
+    const unlocked = game.achievements.filter(a => getLocalUnlocked(a)).length;
     const pct = total > 0 ? (unlocked / total) * 100 : 0;
 
     ratio.textContent = `${unlocked} / ${total}`;
     fill.style.width = `${pct}%`;
+    
+    // Update toggle button state
+    const toggleBtn = $('#btn-toggle-local-trophies');
+    if (toggleBtn) {
+        toggleBtn.classList.toggle('active', isLocalMode);
+    }
 
     // Helper to calculate rarity weight (Legendary = 4, Epic = 3, Rare = 2, Common = 1)
     const getRarityWeight = (apiname) => {
@@ -2667,10 +2829,12 @@ function renderAchievementsInDetails(game) {
 
     // Sort: unlocked achievements first (sorted by rarity weight), then locked achievements below
     const sorted = [...game.achievements].sort((a, b) => {
-        if (a.unlocked !== b.unlocked) {
-            return b.unlocked ? 1 : -1;
+        const aUnlocked = getLocalUnlocked(a);
+        const bUnlocked = getLocalUnlocked(b);
+        if (aUnlocked !== bUnlocked) {
+            return bUnlocked ? 1 : -1;
         }
-        if (a.unlocked) {
+        if (aUnlocked) {
             const wA = getRarityWeight(a.apiname);
             const wB = getRarityWeight(b.apiname);
             return wB - wA;
@@ -2695,7 +2859,8 @@ function renderAchievementsInDetails(game) {
             common: state.language === 'en' ? 'Common' : 'Commun'
         };
 
-        item.className = `achievement-item ${ach.unlocked ? 'unlocked' : ''} rarity-${rarity}`;
+        const isUnlockedLocally = getLocalUnlocked(ach);
+        item.className = `achievement-item ${isUnlockedLocally ? 'unlocked' : ''} rarity-${rarity}`;
 
 
 
@@ -2709,10 +2874,71 @@ function renderAchievementsInDetails(game) {
                 <span class="achievement-name">${ach.name}</span>
                 <span class="achievement-desc">${ach.description}</span>
             </div>
-            ${ach.unlocked ? `<span class="achievement-rarity">${rarityText[rarity]}</span>` : ''}
+            ${isUnlockedLocally ? `<span class="achievement-rarity">${rarityText[rarity]}</span>` : ''}
         `;
         list.appendChild(item);
     });
+
+    // Local Trophies toggle handler
+    const localToggleBtn = $('#btn-toggle-local-trophies');
+    if (localToggleBtn) {
+        const newBtn = localToggleBtn.cloneNode(true);
+        localToggleBtn.parentNode.replaceChild(newBtn, localToggleBtn);
+        
+        newBtn.addEventListener('click', () => {
+            if (game.localTrophies) {
+                game.localTrophies = false;
+                game.localTrophiesBaseline = [];
+                game.localTrophiesUnlockTimes = {};
+                saveState();
+                renderAchievementsInDetails(game);
+                isInitialRender = false;
+                renderBacklog($('#backlog-search').value);
+                const t = translations[state.language] || translations.fr;
+                showToast(t.local_trophies_deactivated_toast, '');
+            } else {
+                const overlay = $('#local-trophies-confirm-overlay');
+                const t = translations[state.language] || translations.fr;
+                
+                $('#local-trophies-confirm-title').textContent = t.local_trophies_activate_title;
+                $('#local-trophies-confirm-desc').textContent = t.local_trophies_activate_desc;
+                $('#btn-local-trophies-cancel').textContent = t.local_trophies_cancel_btn;
+                $('#btn-local-trophies-confirm').textContent = t.local_trophies_activate_btn;
+                
+                openModal(overlay);
+                
+                const confirmBtn = $('#btn-local-trophies-confirm');
+                const cancelBtn = $('#btn-local-trophies-cancel');
+                
+                const cleanup = () => {
+                    confirmBtn.removeEventListener('click', onConfirm);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    closeModal(overlay);
+                };
+                
+                const onConfirm = async () => {
+                    game.localTrophies = true;
+                    game.localTrophiesBaseline = game.achievements
+                        .filter(a => a.unlocked)
+                        .map(a => a.apiname);
+                    game.localTrophiesUnlockTimes = {};
+                    await saveState();
+                    cleanup();
+                    renderAchievementsInDetails(game);
+                    isInitialRender = false;
+                    renderBacklog($('#backlog-search').value);
+                    showToast(t.local_trophies_activated_toast, '');
+                };
+                
+                const onCancel = () => {
+                    cleanup();
+                };
+                
+                confirmBtn.addEventListener('click', onConfirm);
+                cancelBtn.addEventListener('click', onCancel);
+            }
+        });
+    }
 }
 
 async function scanLocalGameConfig(game, path) {
@@ -2850,6 +3076,7 @@ async function startPlaySession(game, isAutoDetect = false) {
 
     const startTime = Date.now();
     state.currentGameId = game.id;
+    game.launchCount = (game.launchCount || 0) + 1;
     await saveState();
     renderAll();
 
@@ -3170,7 +3397,9 @@ function openGameDetails(id, fromCompleted = false) {
     const game = list.find(g => g.id === id);
     if (!game) return;
 
-    const isReleased = !game.releaseDate || (game.releaseDate * 1000 <= Date.now() && !game.comingSoon);
+    const isNewGame = currentDetailsId !== id;
+
+    const isReleased = !game.comingSoon && (!game.releaseDate || game.releaseDate * 1000 <= Date.now());
     const locale = state.language === 'en' ? 'en-US' : 'fr-FR';
     const formattedReleaseDate = game.releaseDate ? new Date(game.releaseDate * 1000).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
@@ -3249,7 +3478,9 @@ function openGameDetails(id, fromCompleted = false) {
             playBtn.style.pointerEvents = 'none'; // Disable click
             statusSpan.textContent = game.steamCountdownText 
                 ? translateCountdownText(game.steamCountdownText)
-                : (state.language === 'en' ? `Releasing on ${formattedReleaseDate}` : `Sortie le ${formattedReleaseDate}`);
+                : (formattedReleaseDate 
+                    ? (state.language === 'en' ? `Releasing on ${formattedReleaseDate}` : `Sortie le ${formattedReleaseDate}`)
+                    : (state.language === 'en' ? 'Release date to be determined' : 'Date de sortie à déterminer'));
         } else {
             playBtn.style.opacity = '1';
             playBtn.style.pointerEvents = 'auto'; // Enable click
@@ -3268,26 +3499,52 @@ function openGameDetails(id, fromCompleted = false) {
     // Render achievements
     renderAchievementsInDetails(game);
 
-    // Display playtime in details
+    // Display playtime & launch count in details
     const playtime = game.playtime || 0;
     const hours = Math.round(playtime / 60 * 10) / 10;
     const playtimeLabel = playtime > 0 ? ` • <svg class="stat-svg" style="width:12px; height:12px; margin-right:2px; display:inline-block; vertical-align:middle;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${hours}h` : '';
+    const launchCount = game.launchCount || 0;
+    const launchLabel = launchCount > 0 ? ` • <span style="display:inline-flex; align-items:center; gap:2px; vertical-align:middle;"><svg class="stat-svg" style="width:12px; height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2H5c-.55 0-1-.45-1-1V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> ${state.language === 'en' ? `${launchCount} launch${launchCount > 1 ? 'es' : ''}` : `${launchCount} lancement${launchCount > 1 ? 's' : ''}`}</span>` : '';
 
     if (fromCompleted) {
-        $('#details-date').innerHTML = formatDate(game.completedAt) + playtimeLabel;
+        // Fix target for SVG link above to be cleaner
+        const cleanLaunchLabel = launchCount > 0 ? ` • <span style="display:inline-flex; align-items:center; gap:2px; vertical-align:middle;"><svg class="stat-svg" style="width:12px; height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> ${state.language === 'en' ? `${launchCount} launch${launchCount > 1 ? 'es' : ''}` : `${launchCount} lancement${launchCount > 1 ? 's' : ''}`}</span>` : '';
+        $('#details-date').innerHTML = formatDate(game.completedAt) + playtimeLabel + cleanLaunchLabel;
     } else {
         let releaseLabel = '';
         if (!isReleased) {
             const releaseDisplay = formattedReleaseDate || (state.language === 'en' ? 'TBD' : 'À déterminer');
             releaseLabel = ` • <span style="color: var(--accent-violet); font-weight: 700; display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;"><svg class="stat-svg" style="width:12px; height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${state.language === 'en' ? 'Releasing' : 'Sortie'} : ${releaseDisplay}</span>`;
         }
-        $('#details-date').innerHTML = `Ajouté le ${formatDate(game.addedAt)}${playtimeLabel}${releaseLabel}`;
+        $('#details-date').innerHTML = `Ajouté le ${formatDate(game.addedAt)}${playtimeLabel}${launchLabel}${releaseLabel}`;
     }
 
     // Populate Steam AppID input
     const steamAppIdInput = $('#input-details-steam-appid');
     if (steamAppIdInput) {
         steamAppIdInput.value = game.steamAppId || '';
+    }
+
+    // Show/hide Open Steam Store button
+    const openSteamStoreBtn = $('#btn-open-steam-store');
+    if (openSteamStoreBtn) {
+        openSteamStoreBtn.style.display = game.steamAppId ? 'inline-flex' : 'none';
+    }
+
+    // Populate Custom SteamID input & show/hide block
+    const customIdBlock = $('#details-steam-customid-block');
+    if (customIdBlock) {
+        customIdBlock.style.display = game.steamAppId ? 'flex' : 'none';
+    }
+    const steamCustomIdInput = $('#input-details-steam-customid');
+    if (steamCustomIdInput) {
+        steamCustomIdInput.value = game.steamCustomId || '';
+    }
+
+    // Show/hide Open Game Folder button
+    const openGameFolderBtn = $('#btn-open-game-folder');
+    if (openGameFolderBtn) {
+        openGameFolderBtn.style.display = game.exePath ? 'inline-flex' : 'none';
     }
 
     // Sync achievements or attempt auto-fill Steam ID
@@ -3324,6 +3581,24 @@ function openGameDetails(id, fromCompleted = false) {
         }
     } else if (!fromCompleted) {
         tryAutoFindSteamAppId(game);
+    }
+
+    // Reset collapsible settings section to collapsed only if we are opening a different game
+    const advContent = $('#advanced-params-content');
+    const advArrow = $('#arrow-toggle-advanced');
+    if (advContent && advArrow) {
+        if (isNewGame) {
+            advContent.classList.add('collapsed');
+            advContent.classList.remove('expanded');
+            advContent.style.maxHeight = '0';
+            advArrow.style.transform = 'rotate(0deg)';
+        } else {
+            if (!advContent.classList.contains('collapsed')) {
+                advContent.classList.add('expanded');
+                advContent.style.maxHeight = advContent.scrollHeight + 'px';
+                advArrow.style.transform = 'rotate(180deg)';
+            }
+        }
     }
 
     openModal($('#details-overlay'));
@@ -4417,6 +4692,41 @@ function initEvents() {
         }
     });
 
+    $('#btn-toggle-advanced-params').addEventListener('click', () => {
+        const content = $('#advanced-params-content');
+        const arrow = $('#arrow-toggle-advanced');
+        if (content && arrow) {
+            const isCollapsed = content.classList.contains('collapsed');
+            if (isCollapsed) {
+                content.classList.remove('collapsed');
+                content.classList.add('expanded');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.add('collapsed');
+                content.classList.remove('expanded');
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+    });
+
+    $('#btn-open-steam-store').addEventListener('click', () => {
+        if (!currentDetailsId) return;
+        const game = state.backlog.find(g => g.id === currentDetailsId) || state.completed.find(g => g.id === currentDetailsId);
+        if (game && game.steamAppId) {
+            window.questlog.openExternalUrl(`https://store.steampowered.com/app/${game.steamAppId}`);
+        }
+    });
+
+    $('#btn-open-game-folder').addEventListener('click', () => {
+        if (!currentDetailsId) return;
+        const game = state.backlog.find(g => g.id === currentDetailsId) || state.completed.find(g => g.id === currentDetailsId);
+        if (game && game.exePath) {
+            window.questlog.openGameFolder(game.exePath);
+        }
+    });
+
     $('#btn-select-exe').addEventListener('click', () => {
         if (!currentDetailsId) return;
         const game = state.backlog.find(g => g.id === currentDetailsId);
@@ -4450,16 +4760,54 @@ function initEvents() {
                 }
                 await fetchAchievementsFromSteam(game, true);
             } else {
-                showToast("Liaison Steam retirée.", "ℹ️");
+                showToast(t('toast_steam_unlinked') || "Liaison Steam retirée.", "ℹ️");
                 game.releaseDate = null;
                 game.comingSoon = null;
                 game.steamCountdownText = null;
+                game.steamCustomId = '';
             }
             
             await saveState();
             renderAchievementsInDetails(game);
             
             // Re-render current details if open to refresh countdown UI in details panel
+            if (currentDetailsId === game.id) {
+                openGameDetails(game.id, currentDetailsSource === 'completed');
+            }
+            renderAll();
+        }
+    });
+
+    $('#btn-save-details-steam-customid').addEventListener('click', async () => {
+        if (!currentDetailsId) return;
+        const game = state.backlog.find(g => g.id === currentDetailsId) || state.completed.find(g => g.id === currentDetailsId);
+        if (game) {
+            const newCustomId = $('#input-details-steam-customid').value.trim();
+            
+            if (newCustomId) {
+                game.steamCustomId = newCustomId;
+                await saveState();
+                
+                const statusRes = await fetchAchievementsFromSteam(game, true);
+                if (statusRes && statusRes.success) {
+                    showToast(t('toast_steam_customid_updated') || "SteamID perso mis à jour !", "🔌");
+                } else {
+                    const errorMsg = statusRes?.error || "Erreur de connexion.";
+                    let translatedError = errorMsg;
+                    if (errorMsg.includes('private') || errorMsg.includes('Private') || errorMsg.includes('Requested files not found')) {
+                        translatedError = state.language === 'en' ? "Steam profile is private or invalid ID" : "Profil Steam privé ou ID invalide";
+                    }
+                    showToast(translatedError, "❌");
+                }
+            } else {
+                game.steamCustomId = '';
+                await saveState();
+                await fetchAchievementsFromSteam(game, true);
+                showToast(t('toast_steam_customid_removed') || "SteamID perso retiré.", "ℹ️");
+            }
+            
+            renderAchievementsInDetails(game);
+            
             if (currentDetailsId === game.id) {
                 openGameDetails(game.id, currentDetailsSource === 'completed');
             }
@@ -4687,7 +5035,8 @@ async function init() {
                     return cleanLoc === cleanApi || cleanLoc === cleanName || cleanLoc.includes(cleanApi) || cleanApi.includes(cleanLoc);
                 });
                 const isAlreadyAwarded = ach ? (ach.xpAwarded === true || ach.xpAwarded === 1) : false;
-                if (ach && !ach.unlocked && !isAlreadyAwarded) {
+                const isInBaseline = game.localTrophies && (game.localTrophiesBaseline || []).includes(apiname);
+                if (ach && !ach.unlocked && !isAlreadyAwarded && !isInBaseline) {
                     ach.unlocked = true;
                     ach.xpAwarded = true; // Mark as rewarded!
                     ach.unlockTime = Math.floor(Date.now() / 1000);

@@ -738,8 +738,14 @@ ipcMain.handle('fetch-steam-release-date', async (event, appId) => {
                         }
 
                         // Extract precise countdown text if available
-                        const match = data.match(/<div class="game_area_comingsoon game_area_bubble">[\s\S]*?<p>([\s\S]*?)<\/p>/i);
-                        const countdownText = match ? match[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
+                        const bubbleMatch = data.match(/<div class="game_area_comingsoon game_area_bubble">([\s\S]*?)<\/div>/i);
+                        let countdownText = '';
+                        if (bubbleMatch) {
+                            const pMatch = bubbleMatch[1].match(/<p>([\s\S]*?)<\/p>/i);
+                            if (pMatch) {
+                                countdownText = pMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+                            }
+                        }
 
                         // Extract release date string from English H1 inside game_area_comingsoon
                         const headerMatch = data.match(/<div class="game_area_comingsoon game_area_bubble">[\s\S]*?<h1>([\s\S]*?)<\/h1>/i);
@@ -1395,6 +1401,26 @@ ipcMain.handle('get-auto-launch', async () => {
 
 ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+});
+
+ipcMain.handle('open-external-url', async (event, url) => {
+    try {
+        await shell.openExternal(url);
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('open-game-folder', async (event, exePath) => {
+    try {
+        if (!exePath) return { success: false, error: 'No path provided' };
+        const dir = path.dirname(exePath);
+        await shell.openPath(dir);
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
 });
 
 // ---------- Overlay & Universal Achievements Engine ----------

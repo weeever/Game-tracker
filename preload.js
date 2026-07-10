@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld('questlog', {
     onUpdateProgress: (callback) => ipcRenderer.on('update-progress', (event, percent) => callback(percent)),
     onWindowShown: (callback) => ipcRenderer.on('window-shown', () => callback()),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
+    openGameFolder: (exePath) => ipcRenderer.invoke('open-game-folder', exePath),
 
     // Platform detection
     isElectron: true
