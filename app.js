@@ -38,6 +38,37 @@ let state = {
 
 // ---------- Changelogs ----------
 const CHANGELOGS = {
+    '0.0.9': {
+        title: "Quest Log v0.0.9 — Réinitialisation & Boosts Quotidiens",
+        date: "13 Juillet 2026",
+        badge: "Minor Update",
+        items: [
+            {
+                title: "Réinitialisation des Succès Steam",
+                desc: "Ajout d'un système de réinitialisation des succès en lien direct avec la console Steam (individuellement ou globalement). Une modal d'aide vous guide pas à pas : désactivation du Cloud, raccourci vers la console Steam et copie de la commande de remise à zéro.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>`
+            },
+            {
+                title: "Filtre Anti-Délai Steam API",
+                desc: "Mise en place d'une mémoire tampon de 15 minutes suite à une réinitialisation. Cela empêche l'API Web de Steam de re-déverrouiller automatiquement les succès réinitialisés pendant son délai de synchronisation.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>`
+            },
+            {
+                title: "Boosts Pondérés & Horaires Précis",
+                desc: "Refonte de l'algorithme de Boost Quotidien avec une sélection pondérée par le temps de jeu (favorisant les jeux joués sans répétition de la veille). De plus, les boosts quotidiens expirent et changent précisément à 00h00, heure française.",
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>`
+            }
+        ]
+    },
     '0.0.8': {
         title: "Quest Log v0.0.8 — Paramètres Avancés & Raccourcis",
         date: "10 Juillet 2026",
@@ -547,6 +578,7 @@ function getXpForLevel(level) {
 async function addXp(amount) {
     if (!state.profile) state.profile = { xp: 0, level: 1, gold: 0 };
     state.profile.xp += amount;
+    if (state.profile.xp < 0) state.profile.xp = 0;
 
     let leveledUp = false;
     while (state.profile.xp >= getXpForLevel(state.profile.level)) {
@@ -572,6 +604,7 @@ async function addGold(amount) {
     if (!state.profile) state.profile = { xp: 0, level: 1, gold: 0 };
     if (state.profile.gold === undefined) state.profile.gold = 0;
     state.profile.gold += amount;
+    if (state.profile.gold < 0) state.profile.gold = 0;
     await saveState();
     updateProfileUI();
 }
@@ -710,7 +743,23 @@ async function computeDailyBoost() {
         return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Helper to get French local date YYYY-MM-DD
+    const getFrenchLocalDateString = () => {
+        try {
+            const formatter = new Intl.DateTimeFormat('fr-CA', {
+                timeZone: 'Europe/Paris',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+            return formatter.format(new Date());
+        } catch (e) {
+            // Fallback if Europe/Paris timezone is not supported
+            return new Date().toISOString().split('T')[0];
+        }
+    };
+
+    const today = getFrenchLocalDateString();
     
     // Check if daily boost is already computed for today and is valid
     if (state.dailyBoost && state.dailyBoost.date === today && Array.isArray(state.dailyBoost.gameIds) && state.dailyBoost.gameIds.length > 0) {
@@ -719,63 +768,51 @@ async function computeDailyBoost() {
         if (allExist) return;
     }
 
-    const now = Date.now();
     const previousGameIds = (state.dailyBoost && Array.isArray(state.dailyBoost.gameIds)) ? state.dailyBoost.gameIds : [];
     
-    // We only exclude previous games if there are enough games in the backlog to choose from
-    const canExcludePrevious = releasedBacklog.length > previousGameIds.length;
-    const isExcluded = (gameId) => canExcludePrevious && previousGameIds.includes(gameId);
-
-    const candidateHigh = [];
-    const candidateMedium = [];
-    const candidateRandom = [];
-
-    releasedBacklog.forEach(game => {
-        if (isExcluded(game.id)) return;
-
-        const playtimeMin = game.playtime || 0;
-        const totalAchs = game.achievements ? game.achievements.length : 0;
-        const unlockedAchs = game.achievements ? game.achievements.filter(a => a.unlocked).length : 0;
-        const achRatio = totalAchs > 0 ? unlockedAchs / totalAchs : 0;
-        const lastPlayedTime = game.lastPlayed || 0;
-
-        // 1. Haute Priorité (70% de chance) : Joué plus de 30 minutes, a des succès, non joué depuis plus de 3 jours
-        const notPlayedRecently = lastPlayedTime === 0 || (now - lastPlayedTime > 3 * 24 * 3600 * 1000);
-        if (playtimeMin > 30 && totalAchs > 0 && notPlayedRecently) {
-            candidateHigh.push(game);
-        }
-
-        // 2. Moyenne Priorité (20% de chance) : Plus de 1h de jeu, mais moins de 50% de succès
-        if (playtimeMin > 60 && totalAchs > 0 && achRatio < 0.5) {
-            candidateMedium.push(game);
-        }
-
-        candidateRandom.push(game);
-    });
+    // Exclude previously boosted games if we have enough games in the backlog
+    const canExcludePrevious = releasedBacklog.length > previousGameIds.length + 2; // Keep at least 2 games to pick from
+    const candidates = releasedBacklog.filter(g => !canExcludePrevious || !previousGameIds.includes(g.id));
 
     // Fallback if everything got excluded
-    if (candidateRandom.length === 0) {
-        candidateRandom.push(...releasedBacklog);
+    const finalPool = candidates.length > 0 ? candidates : releasedBacklog;
+
+    // Roulette wheel selection based on playtime weight
+    const getPlaytimeWeight = (game) => {
+        // Base weight is 10. For each hour played, add 5, capped at 100 total weight.
+        const playtimeHours = Math.floor((game.playtime || 0) / 60);
+        return 10 + Math.min(90, playtimeHours * 5);
+    };
+
+    const selectWeightedGame = (pool) => {
+        const totalWeight = pool.reduce((sum, g) => sum + getPlaytimeWeight(g), 0);
+        if (totalWeight <= 0) return pool[Math.floor(Math.random() * pool.length)];
+
+        let randomVal = Math.random() * totalWeight;
+        for (const game of pool) {
+            randomVal -= getPlaytimeWeight(game);
+            if (randomVal <= 0) {
+                return game;
+            }
+        }
+        return pool[pool.length - 1];
+    };
+
+    // Determine how many games to select (80% chance for 1 game, 20% for 2 games)
+    const targetCount = Math.min(finalPool.length, Math.random() < 0.8 ? 1 : 2);
+    const selectedGames = [];
+    const selectionPool = [...finalPool];
+
+    for (let i = 0; i < targetCount; i++) {
+        if (selectionPool.length === 0) break;
+        const selected = selectWeightedGame(selectionPool);
+        selectedGames.push(selected);
+        // Remove selected game from the pool to avoid duplicates
+        const index = selectionPool.indexOf(selected);
+        if (index > -1) {
+            selectionPool.splice(index, 1);
+        }
     }
-
-    let selectedCategory = [];
-    const rand = Math.random();
-
-    if (rand < 0.7 && candidateHigh.length > 0) {
-        selectedCategory = candidateHigh;
-    } else if (rand < 0.9 && candidateMedium.length > 0) {
-        selectedCategory = candidateMedium;
-    } else {
-        selectedCategory = candidateRandom;
-    }
-
-    if (selectedCategory.length === 0) {
-        selectedCategory = candidateRandom;
-    }
-
-    const shuffled = [...selectedCategory].sort(() => 0.5 - Math.random());
-    const count = Math.min(shuffled.length, Math.random() < 0.8 ? 1 : 2);
-    const selectedGames = shuffled.slice(0, count);
 
     // 5% chance of Mega Boost for each selected game
     const megaGames = selectedGames.filter(() => Math.random() < 0.05);
@@ -784,7 +821,7 @@ async function computeDailyBoost() {
         date: today,
         gameIds: selectedGames.map(g => g.id),
         megaIds: megaGames.map(g => g.id),
-        previousGameIds: previousGameIds // Keep history for stability
+        previousGameIds: previousGameIds
     };
 
     await saveState();
@@ -849,7 +886,7 @@ const LOCALES = {
         stats: "Statistiques",
         settings: "Paramètres",
         add_game: "Ajouter",
-        app_title: "Quest Log - Beta v0.0.8",
+        app_title: "Quest Log - Beta v0.0.9",
         global_progress: "Progression Globale",
         filter_placeholder: "Filtrer...",
         title_backlog: "Jeux dans le backlog",
@@ -987,7 +1024,22 @@ const LOCALES = {
         now_playing_badge: "EN COURS",
         now_playing_ach_title: "Progression des succès",
         now_playing_complete: "Terminé !",
-        now_playing_skip: "Passer"
+        now_playing_skip: "Passer",
+        steam_reset_title: "Réinitialiser sur Steam",
+        steam_reset_step1_title: "Désactiver Steam Cloud (Optionnel)",
+        steam_reset_step1_desc: "Si nécessaire (si les succès reviennent tout seuls), faites un clic droit sur le jeu dans votre bibliothèque Steam > Propriétés > Général, puis décochez \"Activer la synchronisation Steam Cloud\".",
+        steam_reset_step2_title: "Ouvrir la Console Steam",
+        steam_reset_step2_desc: "Lancez la console en cliquant sur le bouton ci-dessous (ou via Win+R, tapez steam://open/console).",
+        steam_reset_btn_console: "Ouvrir la Console",
+        steam_reset_step3_title: "Copier et Exécuter la Commande",
+        steam_reset_step3_desc: "Copiez cette commande, collez-la dans l'invite de commande Steam et appuyez sur Entrée :",
+        steam_reset_btn_copy: "Copier",
+        steam_reset_step4_title: "Reverrouiller dans Quest Log",
+        steam_reset_step4_desc: "Validez la suppression locale ci-dessous pour reverrouiller le succès dans votre profil Quest Log.",
+        steam_reset_btn_confirm: "Confirmer dans Quest Log",
+        steam_reset_toast_success: "Succès réinitialisé(s) dans Quest Log ! XP/Or ajustés.",
+        steam_reset_confirm_message_single: "Vous allez réinitialiser le succès \"{achName}\". Cela retirera 250 XP et 50 pièces d'Or. Voulez-vous continuer ?",
+        steam_reset_confirm_message_all: "Vous allez réinitialiser TOUS les succès de \"{gameName}\". Cela retirera l'XP et l'Or associés. Voulez-vous continuer ?"
     },
     en: {
         btn_add: "Add Game",
@@ -1047,7 +1099,7 @@ const LOCALES = {
         stats: "Statistics",
         settings: "Settings",
         add_game: "Add Game",
-        app_title: "Quest Log - Beta 0.0.7",
+        app_title: "Quest Log - Beta v0.0.9",
         global_progress: "Global Progress",
         filter_placeholder: "Filter list...",
         title_backlog: "Games in backlog",
@@ -1185,7 +1237,22 @@ const LOCALES = {
         now_playing_badge: "PLAYING",
         now_playing_ach_title: "Achievement progress",
         now_playing_complete: "Done !",
-        now_playing_skip: "Skip"
+        now_playing_skip: "Skip",
+        steam_reset_title: "Reset on Steam",
+        steam_reset_step1_title: "Disable Steam Cloud (Optional)",
+        steam_reset_step1_desc: "If necessary (if achievements are restored automatically), right-click the game in your Steam library > Properties > General, then uncheck \"Enable Steam Cloud synchronization\".",
+        steam_reset_step2_title: "Open Steam Console",
+        steam_reset_step2_desc: "Launch the console by clicking the button below (or press Win+R, type steam://open/console).",
+        steam_reset_btn_console: "Open Console",
+        steam_reset_step3_title: "Copy & Execute Command",
+        steam_reset_step3_desc: "Copy this command, paste it into the Steam command prompt and press Enter:",
+        steam_reset_btn_copy: "Copy",
+        steam_reset_step4_title: "Lock again in Quest Log",
+        steam_reset_step4_desc: "Confirm the local reset below to lock the achievement again in your Quest Log profile.",
+        steam_reset_btn_confirm: "Confirm in Quest Log",
+        steam_reset_toast_success: "Achievements reset in Quest Log! XP/Gold adjusted.",
+        steam_reset_confirm_message_single: "You are about to reset the achievement \"{achName}\". This will remove 250 XP and 50 Gold. Do you want to continue?",
+        steam_reset_confirm_message_all: "You are about to reset ALL achievements for \"{gameName}\". This will remove the associated XP and Gold. Do you want to continue?"
     }
 };
 
@@ -2016,18 +2083,52 @@ function initDailyBoostTimer() {
     if (!dailyBoostTimerInterval) {
         const updateTimer = () => {
             const now = new Date();
-            const midnight = new Date();
-            midnight.setHours(24, 0, 0, 0); // Next midnight
-
-            const diff = midnight.getTime() - now.getTime();
-            if (diff <= 0) {
-                // Day changed, recalculate boost
-                clearInterval(dailyBoostTimerInterval);
-                dailyBoostTimerInterval = null;
-                computeDailyBoost().then(() => {
-                    renderAll();
+            
+            try {
+                // Get current French date parts
+                const formatter = new Intl.DateTimeFormat('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                    year: 'numeric', month: 'numeric', day: 'numeric',
+                    hour: 'numeric', minute: 'numeric', second: 'numeric',
+                    hour12: false
                 });
-                return;
+                const parts = formatter.formatToParts(now);
+                const getPart = (type) => parseInt(parts.find(p => p.type === type).value, 10);
+                
+                const year = getPart('year');
+                const month = getPart('month') - 1;
+                const day = getPart('day');
+                const hour = getPart('hour');
+                const minute = getPart('minute');
+                const second = getPart('second');
+
+                // French virtual current time and next midnight
+                const currentFrenchTime = new Date(Date.UTC(year, month, day, hour, minute, second));
+                const nextMidnightFrench = new Date(Date.UTC(year, month, day + 1, 0, 0, 0));
+
+                const diff = nextMidnightFrench.getTime() - currentFrenchTime.getTime();
+                if (diff <= 0) {
+                    // Day changed, recalculate boost
+                    clearInterval(dailyBoostTimerInterval);
+                    dailyBoostTimerInterval = null;
+                    computeDailyBoost().then(() => {
+                        renderAll();
+                    });
+                    return;
+                }
+            } catch (e) {
+                // Fallback to local system midnight if Europe/Paris timezone is not supported
+                const midnight = new Date();
+                midnight.setHours(24, 0, 0, 0);
+                const diff = midnight.getTime() - now.getTime();
+                if (diff <= 0) {
+                    clearInterval(dailyBoostTimerInterval);
+                    dailyBoostTimerInterval = null;
+                    computeDailyBoost().then(() => {
+                        renderAll();
+                    });
+                    return;
+                }
             }
         };
         updateTimer();
@@ -2617,6 +2718,18 @@ async function fetchAchievementsFromSteam(game, silent = false) {
                 const onlineAch = playerList.find(p => p.apiname === ach.apiname);
                 const isOnlineUnlocked = onlineAch ? onlineAch.achieved === 1 : false;
 
+                // Check recently reset achievements ignore window (15 minutes)
+                let finalOnlineUnlocked = isOnlineUnlocked;
+                if (game.recentlyResetAchievements && game.recentlyResetAchievements[ach.apiname]) {
+                    const resetTime = game.recentlyResetAchievements[ach.apiname];
+                    if (Date.now() - resetTime < 15 * 60 * 1000) {
+                        finalOnlineUnlocked = false; // Ignore online unlock during sync delay
+                    } else {
+                        // Cleanup expired reset entry
+                        delete game.recentlyResetAchievements[ach.apiname];
+                    }
+                }
+
                 // Flexible match for local achievements (RUNE, CODEX, Goldberg)
                 const isLocalUnlocked = localUnlockedList.some(locKey => {
                     const cleanLoc = locKey.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -2642,7 +2755,7 @@ async function fetchAchievementsFromSteam(game, silent = false) {
                 }
 
                 const isCachedUnlocked = oldAch ? oldAch.unlocked : false;
-                const isUnlockedNow = isCachedUnlocked || isOnlineUnlocked || isLocalUnlocked;
+                const isUnlockedNow = isCachedUnlocked || finalOnlineUnlocked || isLocalUnlocked;
                 const wasXpAwarded = oldAch ? (oldAch.xpAwarded === true || oldAch.xpAwarded === 1) : false;
 
                 return {
@@ -2676,8 +2789,6 @@ async function fetchAchievementsFromSteam(game, silent = false) {
 
                 if (!wasSimulated && !reallySilent) {
                     const isGameCurrentlyActive = activePlaySession && activePlaySession.gameId === game.id;
-                    const wasRecentlyPlayed = game.lastPlayed && (Date.now() - game.lastPlayed < 5 * 60 * 1000);
-                    const shouldNotify = isGameCurrentlyActive || wasRecentlyPlayed;
 
                     mapped.forEach(newAch => {
                         const oldAch = game.achievements.find(o => o.apiname.toLowerCase() === newAch.apiname.toLowerCase());
@@ -2685,28 +2796,24 @@ async function fetchAchievementsFromSteam(game, silent = false) {
                         const isOldXpAwarded = oldAch ? (oldAch.xpAwarded === true || oldAch.xpAwarded === 1) : false;
 
                         if (newAch.unlocked && !isOldUnlocked && !isOldXpAwarded) {
-                            console.log(`[Steam Sync] Achievement "${newAch.name}" newly unlocked! isOldXpAwarded: ${isOldXpAwarded}, silent: ${silent}, isFirstSync: ${isFirstSync}, shouldNotify: ${shouldNotify}`);
-                            if (shouldNotify) {
-                                addXp(250);
-                                addGold(50);
-                                newAch.xpAwarded = true; // Mark as rewarded!
-                                
-                                showAchievementToast(newAch.name, newAch.description, 250, newAch.icon);
-                                if (isElectron && isGameCurrentlyActive) {
-                                    window.questlog.showOverlayAchievement({
-                                        name: newAch.name,
-                                        description: newAch.description,
-                                        icon: newAch.icon
-                                    });
-                                }
+                            console.log(`[Steam Sync] Achievement "${newAch.name}" newly unlocked! isOldXpAwarded: ${isOldXpAwarded}, silent: ${silent}, isFirstSync: ${isFirstSync}`);
+                            
+                            addXp(250);
+                            addGold(50);
+                            newAch.xpAwarded = true; // Mark as rewarded!
+                            
+                            showAchievementToast(newAch.name, newAch.description, 250, newAch.icon);
+                            if (isElectron && isGameCurrentlyActive) {
+                                window.questlog.showOverlayAchievement({
+                                    name: newAch.name,
+                                    description: newAch.description,
+                                    icon: newAch.icon
+                                });
+                            }
 
-                                // Auto detect game completion from achievement
-                                if (isGameCompletionAchievement(newAch)) {
-                                    handleGameAutoCompleted(game, newAch);
-                                }
-                            } else {
-                                // Silent sync for historical/off-session achievements
-                                newAch.xpAwarded = true;
+                            // Auto detect game completion from achievement
+                            if (isGameCompletionAchievement(newAch)) {
+                                handleGameAutoCompleted(game, newAch);
                             }
                         }
                     });
@@ -2799,6 +2906,22 @@ function renderAchievementsInDetails(game) {
         if (!isLocalMode) return ach.unlocked;
         return ach.unlocked && !baselineSet.has(ach.apiname);
     };
+
+    const resetAllBtn = $('#btn-reset-all-achievements');
+    if (resetAllBtn) {
+        const hasUnlocked = game.achievements.some(a => getLocalUnlocked(a));
+        if (game.steamAppId && hasUnlocked) {
+            resetAllBtn.style.display = 'inline-flex';
+            const newResetAll = resetAllBtn.cloneNode(true);
+            resetAllBtn.parentNode.replaceChild(newResetAll, resetAllBtn);
+            newResetAll.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openSteamResetModal(game, null);
+            });
+        } else {
+            resetAllBtn.style.display = 'none';
+        }
+    }
     
     const unlocked = game.achievements.filter(a => getLocalUnlocked(a)).length;
     const pct = total > 0 ? (unlocked / total) * 100 : 0;
@@ -2861,11 +2984,21 @@ function renderAchievementsInDetails(game) {
         const isUnlockedLocally = getLocalUnlocked(ach);
         item.className = `achievement-item ${isUnlockedLocally ? 'unlocked' : ''} rarity-${rarity}`;
 
-
-
         const iconHtml = ach.icon
             ? `<img src="${ach.icon}" alt="Icon">`
             : '🏆';
+
+        let resetBtnHtml = '';
+        if (game.steamAppId && isUnlockedLocally) {
+            resetBtnHtml = `
+                <button class="achievement-reset-btn" title="Réinitialiser ce succès sur Steam">
+                    <svg class="panel-svg" style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+            `;
+        }
 
         item.innerHTML = `
             <div class="achievement-icon">${iconHtml}</div>
@@ -2874,7 +3007,17 @@ function renderAchievementsInDetails(game) {
                 <span class="achievement-desc">${ach.description}</span>
             </div>
             ${isUnlockedLocally ? `<span class="achievement-rarity">${rarityText[rarity]}</span>` : ''}
+            ${resetBtnHtml}
         `;
+
+        if (game.steamAppId && isUnlockedLocally) {
+            const btn = item.querySelector('.achievement-reset-btn');
+            btn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openSteamResetModal(game, ach);
+            });
+        }
+
         list.appendChild(item);
     });
 
@@ -2893,16 +3036,16 @@ function renderAchievementsInDetails(game) {
                 renderAchievementsInDetails(game);
                 isInitialRender = false;
                 renderBacklog($('#backlog-search').value);
-                const t = translations[state.language] || translations.fr;
-                showToast(t.local_trophies_deactivated_toast, '');
+                const trans = LOCALES[state.language] || LOCALES.fr;
+                showToast(trans.local_trophies_deactivated_toast, '');
             } else {
                 const overlay = $('#local-trophies-confirm-overlay');
-                const t = translations[state.language] || translations.fr;
+                const trans = LOCALES[state.language] || LOCALES.fr;
                 
-                $('#local-trophies-confirm-title').textContent = t.local_trophies_activate_title;
-                $('#local-trophies-confirm-desc').textContent = t.local_trophies_activate_desc;
-                $('#btn-local-trophies-cancel').textContent = t.local_trophies_cancel_btn;
-                $('#btn-local-trophies-confirm').textContent = t.local_trophies_activate_btn;
+                $('#local-trophies-confirm-title').textContent = trans.local_trophies_activate_title;
+                $('#local-trophies-confirm-desc').textContent = trans.local_trophies_activate_desc;
+                $('#btn-local-trophies-cancel').textContent = trans.local_trophies_cancel_btn;
+                $('#btn-local-trophies-confirm').textContent = trans.local_trophies_activate_btn;
                 
                 openModal(overlay);
                 
@@ -2938,6 +3081,159 @@ function renderAchievementsInDetails(game) {
             }
         });
     }
+}
+
+function openSteamResetModal(game, targetAch = null) {
+    const overlay = $('#steam-reset-overlay');
+    const titleEl = $('#steam-reset-title');
+    const targetInfoEl = $('#steam-reset-target-info');
+    const commandTextEl = $('#steam-reset-command-text');
+    const btnConsole = $('#btn-steam-reset-open-console');
+    const btnCopy = $('#btn-steam-reset-copy');
+    const btnConfirm = $('#btn-steam-reset-confirm');
+    const btnCancel = $('#btn-steam-reset-cancel');
+
+    const appLocale = LOCALES[state.language] || LOCALES.fr;
+    const isEn = state.language === 'en';
+
+    // 1. Format commands and warning texts
+    let command = '';
+    let targetText = '';
+    let confirmMsg = '';
+
+    if (targetAch) {
+        // Reset single achievement
+        command = `achievement_clear ${game.steamAppId} ${targetAch.apiname}`;
+        if (isEn) {
+            targetText = `Target: Single Achievement "${targetAch.name}" (API: ${targetAch.apiname})`;
+            confirmMsg = `You are about to reset the achievement "${targetAch.name}". This will remove 250 XP and 50 Gold locally in Quest Log. Do you want to continue?`;
+        } else {
+            targetText = `Cible : Succès unique "${targetAch.name}" (API : ${targetAch.apiname})`;
+            confirmMsg = `Vous allez réinitialiser le succès "${targetAch.name}". Cela retirera 250 XP et 50 pièces d'Or localement dans Quest Log. Voulez-vous continuer ?`;
+        }
+    } else {
+        // Reset all achievements
+        command = `reset_all_stats ${game.steamAppId}`;
+        if (isEn) {
+            targetText = `Target: ALL Achievements for "${game.name}"`;
+            confirmMsg = `You are about to reset ALL achievements for "${game.name}". This will lock them and subtract the associated XP and Gold locally in Quest Log. Do you want to continue?`;
+        } else {
+            targetText = `Cible : TOUS les succès de "${game.name}"`;
+            confirmMsg = `Vous allez réinitialiser TOUS les succès de "${game.name}". Cela les reverrouillera et retirera l'XP et l'Or associés localement dans Quest Log. Voulez-vous continuer ?`;
+        }
+    }
+
+    targetInfoEl.textContent = targetText;
+    commandTextEl.textContent = command;
+
+    openModal(overlay);
+
+    // 2. Clean up old listeners and bind new ones
+    const cleanup = () => {
+        btnConsole.replaceWith(btnConsole.cloneNode(true));
+        btnCopy.replaceWith(btnCopy.cloneNode(true));
+        btnConfirm.replaceWith(btnConfirm.cloneNode(true));
+        btnCancel.replaceWith(btnCancel.cloneNode(true));
+        closeModal(overlay);
+    };
+
+    // Re-select after clone
+    const getFreshElements = () => ({
+        c: $('#btn-steam-reset-open-console'),
+        cp: $('#btn-steam-reset-copy'),
+        cf: $('#btn-steam-reset-confirm'),
+        cn: $('#btn-steam-reset-cancel')
+    });
+
+    const bindEvents = () => {
+        const els = getFreshElements();
+        
+        // Open Steam Console protocol link
+        els.c.addEventListener('click', () => {
+            window.questlog.openExternalUrl('steam://open/console');
+        });
+
+        // Copy command helper
+        els.cp.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(command);
+                const originalText = els.cp.textContent;
+                els.cp.textContent = isEn ? "Copied!" : "Copié !";
+                els.cp.style.background = "rgba(16, 185, 129, 0.2)";
+                els.cp.style.color = "#10b981";
+                setTimeout(() => {
+                    els.cp.textContent = originalText;
+                    els.cp.style.background = "";
+                    els.cp.style.color = "";
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy command:', err);
+            }
+        });
+
+        // Cancel button
+        els.cn.addEventListener('click', () => {
+            cleanup();
+        });
+
+        // Confirm local locking in Quest Log
+        els.cf.addEventListener('click', async () => {
+            const confirmed = await showConfirmModal(confirmMsg);
+            if (!confirmed) return;
+
+            if (!game.recentlyResetAchievements) game.recentlyResetAchievements = {};
+
+            if (targetAch) {
+                // Lock single
+                const achObj = game.achievements.find(a => a.apiname.toLowerCase() === targetAch.apiname.toLowerCase());
+                if (achObj) {
+                    if (achObj.unlocked) {
+                        // Subtract XP/Gold
+                        await addXp(-250);
+                        await addGold(-50);
+                    }
+                    achObj.unlocked = false;
+                    achObj.xpAwarded = false;
+                    achObj.unlockTime = 0;
+                    game.recentlyResetAchievements[achObj.apiname] = Date.now();
+                }
+            } else {
+                // Lock all
+                let subtractCount = 0;
+                game.achievements.forEach(a => {
+                    if (a.unlocked) {
+                        subtractCount++;
+                    }
+                    a.unlocked = false;
+                    a.xpAwarded = false;
+                    a.unlockTime = 0;
+                    game.recentlyResetAchievements[a.apiname] = Date.now();
+                });
+                
+                if (subtractCount > 0) {
+                    await addXp(-(subtractCount * 250));
+                    await addGold(-(subtractCount * 50));
+                }
+            }
+
+            // Ensure XP and Gold are clamped to 0
+            if (state.profile.xp < 0) state.profile.xp = 0;
+            if (state.profile.gold < 0) state.profile.gold = 0;
+            
+            await saveState();
+            cleanup();
+            
+            renderAchievementsInDetails(game);
+            isInitialRender = false;
+            renderBacklog($('#backlog-search').value);
+            renderAll();
+
+            const successToast = isEn ? "Achievements reset in Quest Log!" : "Succès réinitialisé(s) dans Quest Log !";
+            showToast(successToast, "🔄");
+        });
+    };
+
+    bindEvents();
 }
 
 async function scanLocalGameConfig(game, path) {

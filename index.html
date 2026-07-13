@@ -18,7 +18,7 @@
     <!-- Titlebar (Electron Only) -->
     <div id="app-titlebar" class="app-titlebar">
         <div class="titlebar-drag-region"></div>
-        <div class="titlebar-title" data-i18n="app_title">Quest Log - Beta 0.0.8</div>
+        <div class="titlebar-title" data-i18n="app_title">Quest Log - Beta 0.0.9</div>
         <div class="titlebar-controls">
             <button id="btn-win-minimize" class="titlebar-btn" aria-label="Minimiser" data-i18n-aria-label="win_minimize">
                 <svg width="12" height="12" viewBox="0 0 12 12">
@@ -788,6 +788,14 @@
                             </h4>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span id="achievements-ratio" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-violet);">0 / 0</span>
+                                <button id="btn-reset-all-achievements" class="achievement-header-reset-btn" title="Réinitialiser tous les succès sur Steam" style="display: none;">
+                                    <svg class="panel-svg" style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                                        <path d="M16 3h5v5" />
+                                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                                        <path d="M8 21H3v-5" />
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                         <div class="progress-bar-bg" style="height: 6px; margin-bottom: 12px;">
@@ -918,6 +926,72 @@
                 </div>
                 
                 <button id="btn-session-recap-confirm" class="btn-primary recap-item" style="width: 100%; padding: 14px; font-weight: 700; font-size: 0.95rem; background: var(--gradient-primary); box-shadow: var(--shadow-glow); border: none; border-radius: var(--radius-md); margin-top: 10px; cursor: pointer;" data-i18n="btn_continue">Continuer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== STEAM ACHIEVEMENTS RESET HELPER MODAL ===== -->
+    <div id="steam-reset-overlay" class="modal-overlay" aria-hidden="true" style="z-index: 9999;">
+        <div id="modal-steam-reset" class="modal" role="dialog" aria-labelledby="steam-reset-title" style="max-width: 500px; width: 95%;">
+            <h3 id="steam-reset-title" class="modal-title" style="margin-bottom: var(--space-xs);" data-i18n="steam_reset_title">Réinitialiser sur Steam</h3>
+            
+            <div id="steam-reset-target-info" style="font-size: 0.85rem; padding: 10px 14px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-sm); color: var(--accent-red); margin-bottom: 18px; font-weight: 600; line-height: 1.4;">
+                <!-- Dynamically populated target info -->
+            </div>
+
+            <div class="steam-reset-steps" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; text-align: left;">
+                <!-- Step 1 -->
+                <div class="reset-step-row" style="display: flex; gap: 12px; align-items: flex-start;">
+                    <div style="background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; margin-top: 1px;">1</div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: white;" data-i18n="steam_reset_step1_title">Désactiver Steam Cloud</span>
+                        <span style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;" data-i18n="steam_reset_step1_desc">Dans votre bibliothèque Steam, faites un clic droit sur le jeu > Propriétés > Général, puis décochez "Activer la synchronisation Steam Cloud".</span>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="reset-step-row" style="display: flex; gap: 12px; align-items: flex-start;">
+                    <div style="background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; margin-top: 1px;">2</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: white;" data-i18n="steam_reset_step2_title">Ouvrir la Console Steam</span>
+                        <span style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;" data-i18n="steam_reset_step2_desc">Lancez la console en cliquant sur le bouton ci-dessous (ou via Win+R, tapez steam://open/console).</span>
+                        <button id="btn-steam-reset-open-console" class="btn-secondary btn-sm" style="align-self: flex-start; padding: 6px 12px; font-size: 0.78rem; font-weight: 600; display: flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
+                            <svg class="panel-svg" style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                <line x1="8" y1="21" x2="16" y2="21"/>
+                                <line x1="12" y1="17" x2="12" y2="21"/>
+                            </svg>
+                            <span data-i18n="steam_reset_btn_console">Ouvrir la Console</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="reset-step-row" style="display: flex; gap: 12px; align-items: flex-start;">
+                    <div style="background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; margin-top: 1px;">3</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: white;" data-i18n="steam_reset_step3_title">Copier et Exécuter la Commande</span>
+                        <span style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;" data-i18n="steam_reset_step3_desc">Copiez cette commande, collez-la dans l'invite de commande Steam et appuyez sur Entrée :</span>
+                        <div style="display: flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--bg-glass-border); border-radius: var(--radius-sm); padding: 8px 12px; box-sizing: border-box; position: relative;">
+                            <code id="steam-reset-command-text" style="font-family: monospace; font-size: 0.8rem; color: #fbbf24; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">achievement_clear 3751950 API_NAME</code>
+                            <button id="btn-steam-reset-copy" class="btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; font-weight: 600; border-radius: var(--radius-sm);" data-i18n="steam_reset_btn_copy">Copier</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="reset-step-row" style="display: flex; gap: 12px; align-items: flex-start;">
+                    <div style="background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; margin-top: 1px;">4</div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: white;" data-i18n="steam_reset_step4_title">Reverrouiller dans Quest Log</span>
+                        <span style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;" data-i18n="steam_reset_step4_desc">Validez la suppression locale ci-dessous pour reverrouiller le succès dans votre profil Quest Log.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-buttons" style="border-top: 1px solid var(--bg-glass-border); padding-top: var(--space-md); margin-top: 0;">
+                <button id="btn-steam-reset-cancel" class="btn-secondary" style="flex: 1;" data-i18n="confirm_btn_cancel">Annuler</button>
+                <button id="btn-steam-reset-confirm" class="btn-danger" style="flex: 1;" data-i18n="steam_reset_btn_confirm">Confirmer dans Quest Log</button>
             </div>
         </div>
     </div>

@@ -3967,3 +3967,46 @@ body::before {
     left: -15px;
     right: auto;
 }
+
+/* Steam Achievements Reset Helper */
+.achievement-reset-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    opacity: 0;
+    pointer-events: auto;
+}
+.achievement-item:hover .achievement-reset-btn {
+    opacity: 1;
+}
+.achievement-reset-btn:hover {
+    color: var(--accent-red) !important;
+    background: rgba(239, 68, 68, 0.1);
+}
+.achievement-header-reset-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--bg-glass-border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+.achievement-header-reset-btn:hover {
+    color: var(--accent-red);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+#steam-reset-command-text {
+    user-select: all;
+}
